@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: Imposta titolo della finestra della console
+title Makima - Interpretable Probabilistic Forecasting System
+
 echo ===================================================
 echo             MAKIMA INITIALIZATION LAUNCHER         
 echo ===================================================
@@ -11,6 +14,7 @@ where cargo >nul 2>nul
 if %ERRORLEVEL% neq 0 (
     echo [ERRORE] Cargo/Rust non trovato nel PATH.
     echo Per favore installa Rust da https://rustup.rs/
+    echo.
     pause
     exit /b 1
 )
@@ -20,29 +24,45 @@ where python >nul 2>nul
 if %ERRORLEVEL% neq 0 (
     echo [ERRORE] Python non trovato nel PATH.
     echo Per favore installa Python 3.11+ da https://python.org/
+    echo.
     pause
     exit /b 1
 )
 
-echo [1/3] Verifica ambiente Python (makima_lab)...
+echo [1/2] Verifica ambiente Python (makima_lab)...
 python tests\test_makima_lab.py
 if %ERRORLEVEL% neq 0 (
     echo [ATTENZIONE] Test Python non riusciti o ambiente non configurato.
 ) else (
-    echo [OK] Modulo Python makima_lab pronto e verificato.
+    echo [OK] Modulo Python makima_lab verificato.
 )
 echo.
 
-echo [2/3] Compilazione ed esecuzione di Makima Core ^& CLI...
-if "%~1"=="" (
-    :: Avvio predefinito con animazione occhi e stato del motore
-    cargo run --bin makima -- status --anim
-) else (
-    :: Inoltro di eventuali argomenti passati allo script (es: start.bat eyes)
-    cargo run --bin makima -- %*
-)
+echo [2/2] Avvio del motore Makima...
+cargo run --bin makima -- status --anim
 
 echo.
 echo ===================================================
-echo       Sessione Makima completata con successo       
+echo               CONSOLE INTERATTIVA MAKIMA           
 echo ===================================================
+echo Comandi disponibili: status, eyes, help, exit
+echo.
+
+:INTERACTIVE_LOOP
+set "USER_INPUT="
+set /p USER_INPUT="makima> "
+
+if /i "!USER_INPUT!"=="exit" goto END
+if /i "!USER_INPUT!"=="quit" goto END
+if /i "!USER_INPUT!"=="q" goto END
+if "!USER_INPUT!"=="" goto INTERACTIVE_LOOP
+
+cargo run --bin makima -- !USER_INPUT!
+echo.
+goto INTERACTIVE_LOOP
+
+:END
+echo.
+echo Chiusura sessione Makima.
+echo Premi un tasto per chiudere la finestra...
+pause >nul
