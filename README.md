@@ -4,11 +4,11 @@
   <img src="https://giffiles.alphacoders.com/222/222812.gif" alt="Makima" width="480" />
 </p>
 
-> **An interpretable probabilistic forecasting system with cognitive neural memory and real-world telemetry.**
+> **An interpretable probabilistic forecasting system with cognitive neural memory, semantic vector embeddings, and real-world Git telemetry.**
 
 Makima è un sistema di previsione probabilistica, quantificazione dell'incertezza e apprendimento continuo, ispirato concettualmente alla *Laplace Mail* di *Shin Megami Tensei: Devil Survivor*.
 
-Makima **non è un chatbot generico** e non produce allucinazioni. Integra un **motore bayesiano esatto in Rust**, un **database relazionale SQLite WAL con Event Sourcing**, una **rete neurale profonda in PyTorch (`MakimaMindNet`) con memoria latente dell'utente**, e un **osservatore di telemetria Git reale** in background.
+Makima **non è un chatbot generico** e non produce allucinazioni. Integra un **motore bayesiano esatto in Rust**, un **database relazionale SQLite WAL con Event Sourcing**, una **rete neurale profonda in PyTorch (`MakimaMindNet`) con memoria latente dell'utente**, un **motore di embedding semantico vettoriale (`SemanticEmbedder`)** per la risoluzione intelligente dei target, e un **osservatore di telemetria Git reale** in background.
 
 ---
 
@@ -23,8 +23,9 @@ Makima **non è un chatbot generico** e non produce allucinazioni. Integra un **
                        │                                         │
                        ▼                                         ▼
          ┌───────────────────────────┐             ┌───────────────────────────┐
-         │  Semantic NLP & Lexicon   │             │   Git Telemetry Observer  │
-         │ (Subword Hashing Tokeniz) │             │ (Categories & Poisson Rate│
+         │  SemanticEmbedder (NLP)   │             │   Git Telemetry Observer  │
+         │ (SentenceTransformers 384d│             │ (Categorizzazione commit  │
+         │  Cosine Target Matching)  │             │  & Stima Tassi Poisson λ) │
          └─────────────┬─────────────┘             └─────────────┬─────────────┘
                        │                                         │
                        ▼                                         ▼
@@ -67,19 +68,23 @@ Makima **non è un chatbot generico** e non produce allucinazioni. Integra un **
    - Stima dei tassi di frequenza $\lambda$ e calcolo della probabilità di occorrenza entro finestre temporali:
      $$P(T \le t) = 1 - e^{-\lambda t}$$
 
-3. **Mente Neurale Cognitiva (`MakimaMindNet`)**:
+3. **Risoluzione Semantica Vettoriale (`SemanticEmbedder`)**:
+   - Comprensione del linguaggio naturale con `sentence-transformers` (`all-MiniLM-L6-v2`) e fallback deterministico su proiezioni hash subword.
+   - Calcolo della similarità coseno a 384 dimensioni per associare frasi spontanee (es. *"rilasceremo la nuova feature questa settimana?"*) ai target reali della repository (`git:feature_ratio`, `git:test_discipline`).
+
+4. **Mente Neurale Cognitiva (`MakimaMindNet`)**:
    - Encoder con Self-Attention e BiGRU per comprensione del testo in italiano ed inglese.
-   - **User Latent Memory**: un vettore di stato continuo $\mathbf{h}_{user} \in \mathbb{R}^{64}$ che evolve nel tempo ad ogni interazione.
+   - **User Latent Memory**: un vettore di stato continuo $\mathbf{h}_{user} \in \mathbb{R}^{64}$ che evolve nel tempo ad ogni interazione (`makima tell`).
    - **Online Backpropagation**: la rete apprende in tempo reale con discesa del gradiente (AdamW) su ogni fatto o riflessione comunicata.
 
-4. **Telemetria Git Reale & Daemon**:
-   - `makima sync-git`: legge la vera cronologia dei commit Git, categorizza i contributi (`feature`, `bugfix`, `test`, `refactor`, `docs`) e genera target probabilistici reali (`git:feature_ratio`, `git:test_discipline`).
+5. **Telemetria Git Reale & Daemon**:
+   - `makima sync-git`: analizza l'intera cronologia Git reale, categorizza i commit (`feature`, `bugfix`, `test`, `refactor`, `docs`) e alimenta i target probabilistici reali (`git:feature_ratio`, `git:test_discipline`).
    - `makima daemon`: monitora in background il repository in tempo reale intercettando nuovi commit ed aggiornando lo stato neurale e bayesiano.
 
-5. **Storage SQLite WAL con Event Sourcing**:
+6. **Storage SQLite WAL con Event Sourcing**:
    - Database ad alte prestazioni `.makima/makima.db` con `journal_mode = WAL` e tabella immutabile `event_log`.
 
-6. **Scorecard di Valutazione e Calibrazione**:
+7. **Scorecard di Valutazione e Calibrazione**:
    - Calcolo del *Brier Score*, *Log Loss*, *Brier Skill Score* rispetto a baseline climatologiche e *Expected Calibration Error* (ECE).
 
 ---
@@ -87,11 +92,12 @@ Makima **non è un chatbot generico** e non produce allucinazioni. Integra un **
 ## 💻 Guida ai Comandi CLI
 
 ```bash
-# Avvio rapido tramite launcher grafico/interattivo
+# Avvio rapido tramite launcher grafico e console interattiva
 .\start.bat
 
-# Interrogazione semantica in linguaggio naturale
-cargo run --bin makima -- query "pioverà a Milano entro domani?"
+# Interrogazione semantica in linguaggio naturale (con Sentence-Transformers)
+cargo run --bin makima -- query "rilasceremo la nuova feature questa settimana?"
+cargo run --bin makima -- query "riusciremo a completare i test unitari entro 3 giorni?"
 
 # Confida un fatto a Makima (aggiorna la memoria neurale e SQLite)
 cargo run --bin makima -- tell "Oggi ho completato il refactor dell'architettura e mi sento molto soddisfatto"
@@ -132,8 +138,8 @@ powershell -ExecutionPolicy Bypass -File scripts/check.ps1
 ```
 
 - **25/25 Test Rust Superati**: algebra delle probabilità, inferenza bayesiana, Poisson, valutatore Brier, storage SQLite in-memory.
-- **24/24 Test Python Superati**: distribuzioni, calibrazione ECE, semantic parser, PyTorch `MakimaMindNet`, online learning, `GitObserver`.
-- **Zero avvisi** `clippy` e `rustfmt`.
+- **32/32 Test Python Superati**: distribuzioni, calibrazione ECE, semantic embedding & parser, PyTorch `MakimaMindNet`, online learning, `GitObserver`.
+- **Totale 57 Test Unitari/Integrazione**: 100% Superati con **Zero avvisi** `clippy` e `rustfmt`.
 
 ---
 
@@ -154,6 +160,7 @@ powershell -ExecutionPolicy Bypass -File scripts/check.ps1
 - [x] **Fase 13**: Persistenza relazionale SQLite WAL con Event Sourcing (`.makima/makima.db`).
 - [x] **Fase 14**: Modulo Cognitivo Neurale PyTorch (`MakimaMindNet`, Self-Attention, Memoria Latente Utente, Online Backprop).
 - [x] **Fase 15**: Osservatore di Telemetria Git Reale e Modalità Daemon in background (`makima sync-git`, `makima daemon`).
+- [x] **Fase 16**: Motore Vettoriale Semantico (`SemanticEmbedder` Sentence-Transformers `all-MiniLM-L6-v2` & Cosine Target Matching).
 
 ---
 

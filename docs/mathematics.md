@@ -1,15 +1,12 @@
 # Makima — Mathematical Foundations Specification
 
-Questo documento delinea i **fondamenti matematici, probabilistici e statistici previsti** per l'evoluzione di **Makima**. 
-
-> [!NOTE]
-> Questo testo definisce il **quadro teorico e la roadmap scientifica**. I componenti elencati descrivono le aree formali che verranno introdotte progressivamente e non intendono rappresentare algoritmi già implementati nel runtime corrente.
+Questo documento delinea i **fondamenti matematici, probabilistici e statistici** alla base di **Makima**, descrivendo sia i moduli attivi nel runtime sia la roadmap di estensione formale.
 
 ---
 
 ## 1. Principio Scientifico di Implementazione
 
-Per evitare l'accumulo di formule fini a se stesse (*math washing*) o astrazioni opache, ogni futuro modulo matematico in Makima dovrà seguire obbligatoriamente questo ciclo di vita:
+Per evitare l'accumulo di formule fini a se stesse (*math washing*) o astrazioni opache, ogni modulo matematico in Makima segue rigorosamente questo ciclo di vita:
 
 ```text
 Definizione Matematica Formale
@@ -20,82 +17,77 @@ Implementazione Idiomatica ad Alte Prestazioni in Rust (`makima-core`)
              ↓
 Test Unitari & Property-Based Testing (invarianti assiomatici)
              ↓
-Validazione Empirica su Dataset Sintetici e Storici
+Validazione Empirica su Dati Reali (Git Telemetry & Event Log)
              ↓
 Documentazione, Esempio Applicativo & Benchmark
 ```
 
 ---
 
-## 2. Aree Matematiche Previste
+## 2. Fondamenti Matematici Attivi nel Runtime
 
-### 2.1 Teoria della Probabilità Fondazionale
-- **Spazio di probabilità**: formalizzazione della terna $(\Omega, \mathcal{F}, P)$ per definire in modo rigoroso gli eventi previsionali.
-- **Assiomi di Kolmogorov**: rispetto delle proprietà di non-negatività, normalizzazione ($P(\Omega) = 1$) e additività numerabile.
-- **Probabilità condizionata e indipendenza**: calcolo esplicito di $P(A \mid B) = \frac{P(A \cap B)}{P(B)}$.
+### 2.1 Distribuzione di Bernoulli ed Entropia di Shannon
+Per un evento binario $X \in \{0, 1\}$ con parametro $p = P(X = 1)$:
+- **Valore Atteso**: $E[X] = p$
+- **Varianza**: $\text{Var}(X) = p(1 - p)$
+- **Entropia Informativa di Shannon** (in bit):
+  $$H(p) = -p \log_2(p) - (1-p) \log_2(1-p)$$
+  con la convenzione $0 \log_2 0 = 0$. Rappresenta la quantificazione dell'incertezza informativa residua (massima per $p = 0.5$ con $H = 1.0\text{ bit}$, nulla per eventi deterministici $p \in \{0, 1\}$).
 
-### 2.2 Variabili Aleatorie (Discrete e Continue)
-- **Variabili Discrete**: conteggio di eventi, stati discreti, occorrenze entro orizzonti finiti.
-- **Variabili Continue**: orizzonti temporali continui, durata stimata per il verificarsi di un evento.
-- **Funzione di Ripartizione (CDF)** e **Funzione di Densità/Massa di Probabilità (PDF/PMF)** calcolabili per ogni stima.
+### 2.2 Inferenza Bayesiana con Coniugata Beta-Binomiale
+Dato un prior $\text{Beta}(\alpha_0, \beta_0)$ e $n$ osservazioni empiriche contenenti $s$ successi e $f = n - s$ fallimenti:
+- **Funzione di Densità di Probabilità**:
+  $$f(p; \alpha, \beta) = \frac{1}{\text{B}(\alpha, \beta)} p^{\alpha - 1} (1 - p)^{\beta - 1}$$
+- **Aggiornamento Bayesiano Analitico**:
+  $$\alpha' = \alpha_0 + s, \quad \beta' = \beta_0 + f$$
+- **Probabilità Attesa (Media del Posterior)**:
+  $$E[P] = \frac{\alpha'}{\alpha' + \beta'}$$
+- **Incertezza Epistemica (Varianza del Posterior)**:
+  $$\text{Var}(P) = \frac{\alpha' \beta'}{(\alpha' + \beta')^2 (\alpha' + \beta' + 1)}$$
+  All'aumentare delle evidenze $n \to \infty$, $\text{Var}(P) \to 0$, riducendo progressivamente l'incertezza epistemica.
 
-### 2.3 Distribuzioni di Probabilità
-Le distribuzioni parametriche e non parametriche che costituiranno i mattoni analitici del motore:
-- **Bernoulli e Binomiale**: stima della probabilità di accadimento di singoli eventi binari (successo/insuccesso).
-- **Poisson ed Esponenziale**: modellazione della frequenza di accadimento di eventi in intervalli temporali fissi e del tempo di attesa inter-evento.
-- **Beta e Dirichlet**: distribuzioni a priori coniugate per proporzioni e probabilità categoriche.
-- **Gamma e Normale/Log-Normale**: modellazione di durate continue e variabilità simmetrica/asimmetrica.
+### 2.3 Processi Temporali di Poisson
+Per il conteggio di eventi che avvengono con un tasso costante $\lambda > 0$ eventi per unità di tempo:
+- **Funzione di Massa (PMF)**:
+  $$P(X = k) = \frac{\lambda^k e^{-\lambda}}{k!}$$
+- **Funzione di Ripartizione Cumulativa (CDF)**:
+  $$P(X \le k) = e^{-\lambda} \sum_{i=0}^k \frac{\lambda^i}{i!}$$
+- **Probabilità di Almeno un Accadimento in una Finestra $T$**:
+  $$P(T \le t) = 1 - e^{-\lambda t}$$
+  utilizzata per le interrogazioni con finestra temporale (*"questa settimana"*, *"entro 30 giorni"*).
 
-### 2.4 Inferenza Bayesiana
-- **Teorema di Bayes**: aggiornamento razionale dello stato di conoscenza:
-  $$P(\theta \mid \mathcal{D}) = \frac{P(\mathcal{D} \mid \theta) P(\theta)}{P(\mathcal{D})}$$
-- **Aggiornamento Sequenziale**: capacità di Makima di aggiornare la distribuzione a posteriori (*posterior*) ogni volta che viene registrata una nuova `Observation` empirica senza dover riaddestrare modelli monolitici.
-- **Prior Coniugati e Stime Non-Informative**: utilizzo di prior trasparenti e dichiarati per gestire contesti con scarse osservazioni empiriche.
+### 2.4 Proper Scoring Rules & Calibrazione Empirica
+Makima valuta la qualità probabilistica a fronte degli esiti reali $o \in \{0, 1\}$:
+- **Brier Score**:
+  $$BS = (p - o)^2 \in [0, 1]$$
+- **Logarithmic Score (Log Loss)**:
+  $$LL = -\left(o \ln(p) + (1 - o) \ln(1 - p)\right)$$
+- **Brier Skill Score (BSS)** rispetto a baseline non informativa ($p_{\text{ref}} = 0.5$):
+  $$BSS = 1 - \frac{\overline{BS}}{BS_{\text{ref}}}$$
+- **Expected Calibration Error (ECE)**:
+  $$ECE = \sum_{m=1}^M \frac{|B_m|}{N} |\text{acc}(B_m) - \text{conf}(B_m)|$$
 
-### 2.5 Catene di Markov e Processi Stocastici
-- **Spazio degli Stati**: modellazione delle transizioni tra fasi discrete di un processo osservabile.
-- **Matrici di Transizione**: stima delle probabilità di passaggio $P(S_{t+1} = j \mid S_t = i)$.
-- **Distribuzione Stazionaria e Tempi di Primo Passaggio**: calcolo del tempo medio atteso per raggiungere un determinato stato obiettivo.
-
-### 2.6 Metodi Monte Carlo
-- **Campionamento Stocastico Deterministico**: generazione di traiettorie future tramite campionamento pseudocasuale con seed riproducibili.
-- **Simulazione di Scenari Futuri**: aggregazione di migliaia di possibili evoluzioni per ricavare la distribuzione empirica della data o del risultato previsto.
-- **Stima dell'Incertezza tramite Bootstrap**: quantificazione della variabilità campionaria sui parametri stimati.
-
-### 2.7 Serie Temporali e Processi di Punto
-- **Analisi degli Intervalli Temporali**: studio della distribuzione dei ritardi temporali tra osservazioni successive.
-- **Rilevazione di Trend e Stagionalità**: decomposizione della frequenza di osservazione per identificare pattern comportamentali.
-
-### 2.8 Teoria dell'Informazione ed Entropia di Shannon
-- **Entropia**: misura dell'incertezza residua di una distribuzione discreta $H(X) = -\sum P(x) \log_2 P(x)$.
-- **Diagnostica di Dispersione**: utilizzo dell'entropia per comunicare all'utente quanto la previsione sia concentrata (bassa entropia) o dispersa/incerta (alta entropia).
-
-### 2.9 Divergenza di Kullback-Leibler (KL)
-- **Misura del Guadagno Informativo**: quantificazione della variazione tra la distribuzione a priori e la distribuzione a posteriori all'arrivo di nuove evidenze:
-  $$D_{\text{KL}}(P \parallel Q) = \sum P(x) \log \frac{P(x)}{Q(x)}$$
-- **Valutazione della Rilevanza delle Evidenze**: misurare quanto una singola osservazione abbia effettivamente modificato la credenza del modello.
-
-### 2.10 Calibrazione Probabilistica
-- **Reliability Diagrams**: raggruppamento delle previsioni per classi di probabilità (es. tutte le previsioni emesse al 70%) per verificare che la frequenza empirica reale sia pari al 70%.
-- **Curve di Calibrazione**: identificazione di errori sistematici di *overconfidence* (eccesso di sicurezza) o *underconfidence* (eccesso di cautela).
-
-### 2.11 Proper Scoring Rules
-Metriche di valutazione che incoraggiano l'onestà e la precisione probabilistica penalizzando previsioni vaghe o sovrasicure:
-- **Brier Score**: misura dell'errore quadratico medio per eventi probabilistici binari o multinomiali.
-- **Logarithmic Score (Negative Log-Likelihood)**: penalizzazione logaritmica severa per eventi imprevisti a cui era stata attribuita probabilità quasi nulla.
-
-### 2.12 Quantificazione dell'Incertezza
-Distinzione analitica esplicita nell'output di previsione:
-- **Incertezza Aleatoria**: variabilità intrinseca e non riducibile del processo stocastico.
-- **Incertezza Epistemica**: incertezza dovuta alla mancanza di dati storici o conoscenza del dominio, riducibile raccogliendo ulteriori osservazioni.
-- **Intervalli di Credibilità**: fornitura di bande al 50%, 80% e 95% per ogni previsione su orizzonti continui.
+### 2.5 Rappresentazione Semantica e Similarità Coseno
+Per associare richieste spontanee in linguaggio naturale ai target monitorati, `SemanticEmbedder` mappa stringhe $S$ in vettori normalizzati $\mathbf{u} \in \mathbb{R}^{384}$:
+$$\text{sim}(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2}$$
 
 ---
 
-## 3. Criteri di Accettazione per Nuovi Moduli Matematici
+## 3. Aree Matematiche della Roadmap
+
+Le seguenti aree teoriche verranno integrate nelle fasi future:
+- **Distribuzioni di Dirichlet**: estensione multinomiale della Beta per target categorici multi-stato.
+- **Catene di Markov a Tempo Discreto (DTMC)**: matrici di transizione $P(S_{t+1} = j \mid S_t = i)$ per modellare stati di avanzamento del software (Design, Testing, Review, Deploy).
+- **Simulazioni Monte Carlo Riproducibili**: campionamento vettoriale con seed deterministici per scenari complessi multi-variabile.
+- **Divergenza di Kullback-Leibler ($D_{\text{KL}}$)**: quantificazione del guadagno informativo istantaneo:
+  $$D_{\text{KL}}(P \parallel Q) = \sum_{x} P(x) \log \frac{P(x)}{Q(x)}$$
+
+---
+
+## 4. Criteri di Accettazione per Nuovi Moduli Matematici
 
 Nessun nuovo modulo matematico potrà essere mergiato nel repository senza soddisfare tutti i seguenti requisiti:
 1. **Definizione formale** nel modulo o nella documentazione di riferimento.
 2. **Implementazione puramente Rust** priva di panics non controllati o allocazioni superflue.
 3. **Test di Proprietà (Property Tests)** che dimostrino la conservazione delle proprietà matematiche (es. probabilità nell'intervallo $[0, 1]$, somme pari a $1$, non-negatività della divergenza KL).
-4. **Validazione preliminare** archiviata negli esperimenti (`experiments/`).
+4. **Validazione preliminare** archiviata negli esperimenti (`experiments/`) o nella test suite Python.

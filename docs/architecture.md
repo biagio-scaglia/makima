@@ -272,33 +272,56 @@ Il modulo `makima_lab.git_observer` collega Makima direttamente all'attività re
 
 ---
 
-## 12. Testing Strategy
+## 12. Semantic Vector Embeddings & Target Resolution (`SemanticEmbedder`)
+
+Il modulo `makima_lab.embeddings` fornisce rappresentazioni vettoriali dense a 384 dimensioni basate su Sentence-Transformers (`all-MiniLM-L6-v2`) con fallback deterministico su proiezioni hash subword:
+
+```text
+  [ Query NL Utente ] ──► [ SemanticEmbedder ] ──► Vettore u ∈ ℝ³⁸⁴
+                                                         │
+                                               Similarità Coseno
+                                            cos(u, v) = (u · v) / (||u|| ||v||)
+                                                         │
+  [ Target Registrati SQLite / Git ] ──────────► Vettori {v_t} ∈ ℝ³⁸⁴
+                                                         │
+                                                         ▼
+                                             Target Ottimale Selezionato
+                                            (es: "nuova feature" ➔ git:feature_ratio)
+```
+
+1. **Risoluzione Semantica Dinamica**: Invece di vincoli lessicali rigidi, il parser interroga l'elenco dei target realmente monitorati nel database SQLite ed effettua il matching basandosi sulla massima similarità coseno dello spazio semantico.
+2. **Affidabilità Offline**: In assenza di connessione o librerie esterne, l'embedder commuta trasparentemente su proiezioni hash ad alta dimensionalità senza interrompere il flusso previsionale.
+
+---
+
+## 13. Testing Strategy
 
 La validità del sistema è garantita da più livelli di test:
 - **Rust Unit Tests**: correttezza dei singoli tipi, invarianti di dominio e funzioni matematiche elementari.
 - **Rust Integration Tests**: pipeline end-to-end all'interno dei crate.
 - **Neural Tests**: verifica della convergenza dell'encoder `MakimaMindNet`, propagazione della memoria e online learning.
 - **Git Telemetry Tests**: verifica dell'osservatore e categorizzazione automatica dei commit.
+- **Embedding & NLP Tests**: verifica della similarità semantica, estrazione dei target reali e parsing temporale.
 - **Mathematical Property-Based Tests**: verifica di proprietà assiomatiche (es. $\sum P(X) = 1$, divergenza KL $\ge 0$, simmetria dove prevista).
 - **Python Lab Tests**: verifica della riproducibilità numerica degli esperimenti statistici e coerenza del setup.
 
 ---
 
-## 12. Reproducibility
+## 14. Reproducibility
 
 - **Controllo dei Semi (*Seed*)**: qualsiasi componente stocastico (es. Monte Carlo) deve accettare un generatore di numeri pseudo-casuali inizializzato con seed esplicito.
 - **Versionamento degli Algoritmi**: qualsiasi evoluzione di un modello previsionale viene tracciata semanticamente per consentire il confronto retrospettivo.
 
 ---
 
-## 13. Error Handling
+## 15. Error Handling
 
 - **Rifiuto di `unwrap()` e `expect()` non motivati**: nel codice di produzione `makima-core` gli errori devono essere modellati con `Result<T, E>` e tipi di errore espliciti.
 - **Fallimenti Trasparenti**: se le evidenze per un target sono insufficienti per formulare una distribuzione valida, il motore restituisce uno stato di incertezza massima anziché una stima fuorviante.
 
 ---
 
-## 14. Future Extension Points
+## 16. Future Extension Points
 
 - **`makima-math`**: modulo specializzato per distribuzioni probabilistiche, entropia, divergenza KL e matrici di transizione markoviane.
 - **`makima-nlp`**: modulo di parsing semantico per trasformare frasi in linguaggio naturale in query strutturate.
@@ -307,7 +330,7 @@ La validità del sistema è garantita da più livelli di test:
 
 ---
 
-## 15. Explicit Non-Goals (Cosa Makima NON è)
+## 17. Explicit Non-Goals (Cosa Makima NON è)
 
 Per preservare l'integrità concettuale e tecnica del progetto, Makima **NON** è e non diventerà:
 
