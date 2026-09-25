@@ -92,7 +92,10 @@ Makima **non è un chatbot generico** e non produce allucinazioni. Integra un **
 ## 💻 Guida ai Comandi CLI
 
 ```bash
-# Avvio rapido tramite launcher grafico e console interattiva
+# Avvio istantaneo (<300ms, senza test preventivi e con binario compilato)
+.\avvio.bat
+
+# Avvio con verifica preventiva dell'intera suite di test scientifici
 .\start.bat
 
 # Interrogazione semantica in linguaggio naturale (con Sentence-Transformers)

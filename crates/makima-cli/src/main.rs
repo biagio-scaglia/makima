@@ -635,6 +635,7 @@ fn main() -> ExitCode {
             print_version();
             ExitCode::SUCCESS
         }
+        "exit" | "quit" | "q" => ExitCode::SUCCESS,
         unknown => {
             eprintln!("Errore: comando sconosciuto '{}'.\n", unknown);
             eprintln!("Esegui 'makima --help' per la lista dei comandi disponibili.");
