@@ -14,15 +14,16 @@ if sys.platform == "win32":
 from makima_lab.distributions import Bernoulli, BetaDistribution, PoissonDistribution
 from makima_lab.nlp.models import ForecastQuery, Intent, TemporalRelation
 from makima_lab.nlp.parser import SemanticQueryParser
+from makima_lab.storage import compute_knowledge_base_from_store, load_store
 
 
-# Dataset storico di evidenze di riferimento per i target noti nel laboratorio
+# Dataset storico di fallback
 DEFAULT_KNOWLEDGE_BASE = {
     "framework_release": {
         "successes": 6,
         "failures": 2,
         "historical_days": 60,
-        "rate_per_day": 6.0 / 60.0,  # ~0.10 rilasci/giorno (1 ogni ~10 giorni)
+        "rate_per_day": 6.0 / 60.0,
     },
     "daily_build": {
         "successes": 28,
@@ -100,7 +101,15 @@ class SemanticForecastPipeline:
 
     def __init__(self, parser: SemanticQueryParser | None = None, knowledge_base: dict | None = None):
         self.parser = parser or SemanticQueryParser()
-        self.knowledge_base = knowledge_base or DEFAULT_KNOWLEDGE_BASE
+        if knowledge_base is not None:
+            self.knowledge_base = knowledge_base
+        else:
+            # Carica dallo storage persistente .makima/store.json
+            store_data = load_store()
+            loaded_kb = compute_knowledge_base_from_store(store_data)
+            merged_kb = dict(DEFAULT_KNOWLEDGE_BASE)
+            merged_kb.update(loaded_kb)
+            self.knowledge_base = merged_kb
 
     def execute(self, text: str) -> SemanticForecastResult:
         """Esegue l'intero flusso di comprensione ed elaborazione matematica."""

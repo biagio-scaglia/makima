@@ -8,3 +8,5 @@ repository.workspace = true
 description = "Core probabilistic forecasting engine and mathematical foundation for Makima"
 
 [dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

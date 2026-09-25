@@ -4,10 +4,11 @@
 //! tra cui Proper Scoring Rules (Brier Score, Logarithmic Loss) e Brier Skill Score contro baseline.
 
 use crate::prob::Probability;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Risultato reale (*Ground Truth*) verificatosi per un evento previsto.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Outcome {
     /// Target associato all'evento.
     pub target: String,

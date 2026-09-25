@@ -8,6 +8,7 @@
 pub mod eval;
 pub mod forecast;
 pub mod prob;
+pub mod storage;
 
 pub use eval::{EvaluationReport, Evaluator, Outcome, Scoring};
 pub use forecast::{Forecast, ForecastError};
@@ -15,11 +16,13 @@ pub use prob::{
     Bernoulli, BetaDistribution, ContinuousDistribution, DiscreteDistribution, Distribution,
     PoissonDistribution, ProbError, Probability,
 };
+pub use storage::MakimaStore;
 
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Stato operativo dell'istanza del motore Makima.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum EngineState {
     /// Il motore è inizializzato e pronto a ricevere osservazioni o richieste di previsione.
     #[default]
@@ -38,7 +41,7 @@ impl fmt::Display for EngineState {
 }
 
 /// Riepilogo sullo stato operativo e diagnostico del motore.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EngineStatus {
     /// Versione del core engine.
     pub version: &'static str,
@@ -51,11 +54,11 @@ pub struct EngineStatus {
 }
 
 /// Identificativo univoco per una singola osservazione empirica.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ObservationId(pub u64);
 
 /// Rappresentazione di una singola evidenza o osservazione registrata nel sistema.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Observation {
     /// Identificativo dell'osservazione.
     pub id: ObservationId,

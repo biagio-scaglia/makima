@@ -1,0 +1,107 @@
+{
+  "version": "0.1.0",
+  "observations": [
+    {
+      "id": 1,
+      "target": "framework_release",
+      "timestamp_sec": 1700000000,
+      "value": 1.0
+    },
+    {
+      "id": 2,
+      "target": "framework_release",
+      "timestamp_sec": 1700086400,
+      "value": 1.0
+    },
+    {
+      "id": 3,
+      "target": "framework_release",
+      "timestamp_sec": 1700172800,
+      "value": 0.0
+    },
+    {
+      "id": 4,
+      "target": "framework_release",
+      "timestamp_sec": 1700259200,
+      "value": 1.0
+    },
+    {
+      "id": 5,
+      "target": "framework_release",
+      "timestamp_sec": 1700345600,
+      "value": 1.0
+    },
+    {
+      "id": 6,
+      "target": "framework_release",
+      "timestamp_sec": 1700432000,
+      "value": 1.0
+    },
+    {
+      "id": 7,
+      "target": "framework_release",
+      "timestamp_sec": 1700518400,
+      "value": 0.0
+    },
+    {
+      "id": 8,
+      "target": "framework_release",
+      "timestamp_sec": 1700604800,
+      "value": 1.0
+    },
+    {
+      "id": 9,
+      "target": "daily_build",
+      "timestamp_sec": 1700000000,
+      "value": 1.0
+    },
+    {
+      "id": 10,
+      "target": "daily_build",
+      "timestamp_sec": 1700086400,
+      "value": 1.0
+    },
+    {
+      "id": 11,
+      "target": "daily_build",
+      "timestamp_sec": 1700172800,
+      "value": 1.0
+    },
+    {
+      "id": 12,
+      "target": "api_gateway",
+      "timestamp_sec": 1700000000,
+      "value": 1.0
+    },
+    {
+      "id": 13,
+      "target": "api_gateway",
+      "timestamp_sec": 1700086400,
+      "value": 1.0
+    },
+    {
+      "id": 14,
+      "target": "api_gateway",
+      "timestamp_sec": 1700172800,
+      "value": 0.0
+    },
+    {
+      "id": 15,
+      "target": "api_gateway",
+      "timestamp_sec": 1700259200,
+      "value": 1.0
+    }
+  ],
+  "outcomes": [
+    {
+      "target": "framework_release",
+      "occurred": true,
+      "timestamp_sec": 1700650000
+    },
+    {
+      "target": "daily_build",
+      "occurred": true,
+      "timestamp_sec": 1700200000
+    }
+  ]
+}

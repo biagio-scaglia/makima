@@ -3,11 +3,43 @@
 mod eyes;
 
 use makima_core::{
-    Bernoulli, DiscreteDistribution, Distribution, Forecast, MakimaEngine, Observation,
-    ObservationId, PoissonDistribution, Scoring,
+    Bernoulli, DiscreteDistribution, Distribution, Forecast, MakimaEngine, MakimaStore,
+    PoissonDistribution, Scoring,
 };
 use std::env;
 use std::process::ExitCode;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn current_unix_timestamp() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+fn load_engine_from_store() -> MakimaEngine {
+    let mut engine = MakimaEngine::new();
+    let store_path = MakimaStore::default_path();
+    match MakimaStore::load_or_init(&store_path) {
+        Ok(store) => {
+            store.apply_to_engine(&mut engine);
+        }
+        Err(err) => {
+            eprintln!("[ATTENZIONE] Impossibile caricare .makima/store.json ({err}). Utilizzo dati in-memory.");
+            let store = MakimaStore::sample_store();
+            store.apply_to_engine(&mut engine);
+        }
+    }
+    engine
+}
+
+fn save_engine_to_store(engine: &MakimaEngine) {
+    let store_path = MakimaStore::default_path();
+    let store = MakimaStore::from_engine(engine);
+    if let Err(err) = store.save(&store_path) {
+        eprintln!("[ATTENZIONE] Impossibile salvare lo stato in .makima/store.json: {err}");
+    }
+}
 
 fn print_help() {
     println!("Makima - Interpretable Probabilistic Forecasting System\n");
@@ -41,41 +73,6 @@ fn print_version() {
     println!("makima {}", env!("CARGO_PKG_VERSION"));
 }
 
-/// Inizializza un motore di default con alcune evidenze storiche ed esiti di riferimento.
-fn create_engine_with_sample_data() -> MakimaEngine {
-    let mut engine = MakimaEngine::new();
-
-    // Dati storici di esempio su rilasci software passati
-    let samples = [
-        ("framework_release", 1.0, 1_700_000_000),
-        ("framework_release", 1.0, 1_700_086_400),
-        ("framework_release", 0.0, 1_700_172_800),
-        ("framework_release", 1.0, 1_700_259_200),
-        ("framework_release", 1.0, 1_700_345_600),
-        ("framework_release", 1.0, 1_700_432_000),
-        ("framework_release", 0.0, 1_700_518_400),
-        ("framework_release", 1.0, 1_700_604_800),
-        ("daily_build", 1.0, 1_700_000_000),
-        ("daily_build", 1.0, 1_700_086_400),
-        ("daily_build", 1.0, 1_700_172_800),
-    ];
-
-    for (idx, (target, val, ts)) in samples.iter().enumerate() {
-        engine.record_observation(Observation::new(
-            ObservationId((idx + 1) as u64),
-            *target,
-            *ts,
-            *val,
-        ));
-    }
-
-    // Esiti reali storici già verificati nel passato
-    engine.record_outcome("framework_release", true, 1_700_650_000);
-    engine.record_outcome("daily_build", true, 1_700_200_000);
-
-    engine
-}
-
 fn render_ascii_density_bar(prob: f64, width: usize) -> String {
     let pos = (prob * ((width - 1) as f64)).round() as usize;
     let mut bar = vec!['-'; width];
@@ -94,7 +91,7 @@ fn handle_status(animated: bool) {
         println!();
     }
 
-    let engine = create_engine_with_sample_data();
+    let engine = load_engine_from_store();
     let status = engine.status();
 
     println!("========================================");
@@ -104,12 +101,13 @@ fn handle_status(animated: bool) {
     println!("Stato Operativo:     {}", status.state);
     println!("Osservazioni Totali: {}", status.total_observations);
     println!("Esiti Valutati:      {}", status.total_outcomes);
+    println!("Storage Persistente: .makima/store.json");
     println!("Architettura:        Ibrida (Rust Core + Python Lab)");
     println!("========================================");
 }
 
 fn handle_predict(target: &str) {
-    let engine = create_engine_with_sample_data();
+    let engine = load_engine_from_store();
     let forecast: Forecast = engine.predict_target(target);
 
     println!("\n============================================================");
@@ -165,11 +163,13 @@ fn handle_observe(target: &str, value_str: &str) {
         }
     };
 
-    let mut engine = create_engine_with_sample_data();
-    let id = engine.record_binary(target, is_success, 1_700_700_000);
+    let mut engine = load_engine_from_store();
+    let ts = current_unix_timestamp();
+    let id = engine.record_binary(target, is_success, ts);
+    save_engine_to_store(&engine);
     let forecast = engine.predict_target(target);
 
-    println!("\n[OK] Nuova osservazione registrata con successo!");
+    println!("\n[OK] Nuova osservazione registrata con successo e salvata nello storage!");
     println!("- ID Assegnato:   {}", id.0);
     println!("- Target:         {target}");
     println!(
@@ -186,6 +186,7 @@ fn handle_observe(target: &str, value_str: &str) {
         forecast.posterior.beta(),
         forecast.probability.value() * 100.0
     );
+    println!("- File Storage:   .makima/store.json");
     println!();
 }
 
@@ -199,12 +200,14 @@ fn handle_outcome(target: &str, value_str: &str) {
         }
     };
 
-    let mut engine = create_engine_with_sample_data();
+    let mut engine = load_engine_from_store();
     let forecast = engine.predict_target(target);
     let brier = Scoring::brier_score(forecast.probability, actual_occurred);
     let log_loss = Scoring::log_loss(forecast.probability, actual_occurred);
 
-    engine.record_outcome(target, actual_occurred, 1_700_800_000);
+    let ts = current_unix_timestamp();
+    engine.record_outcome(target, actual_occurred, ts);
+    save_engine_to_store(&engine);
 
     println!("\n============================================================");
     println!("            VALUTAZIONE GROUND TRUTH (ESITO REALE)          ");
@@ -227,11 +230,12 @@ fn handle_outcome(target: &str, value_str: &str) {
         brier
     );
     println!("Log Loss Singola:     {:.4}", log_loss);
+    println!("Stato Salvato in:     .makima/store.json");
     println!("============================================================\n");
 }
 
 fn handle_evaluate() {
-    let engine = create_engine_with_sample_data();
+    let engine = load_engine_from_store();
     match engine.evaluate_performance() {
         Some(report) => println!("\n{report}\n"),
         None => println!(
