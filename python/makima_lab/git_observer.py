@@ -12,7 +12,13 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from makima_lab.storage import get_default_db_path, record_journal_entry
-from makima_lab.neural import get_neural_engine
+
+try:
+    from makima_lab.neural import get_neural_engine
+    HAS_NEURAL = True
+except (ImportError, Exception):
+    HAS_NEURAL = False
+    get_neural_engine = None
 
 
 @dataclass
@@ -99,7 +105,7 @@ class GitObserver:
 
         db_path = get_default_db_path()
         conn = sqlite3.connect(db_path)
-        engine = get_neural_engine()
+        engine = get_neural_engine() if HAS_NEURAL and get_neural_engine is not None else None
 
         synced_count = 0
         categories_count: Dict[str, int] = {}
@@ -137,18 +143,20 @@ class GitObserver:
                     ("git:test_discipline", test_val, c.timestamp_sec, f"{c.commit_hash[:7]}: {c.subject}"),
                 )
 
-                # 3. Feed neural mind with real commit message
-                engine.learn_step(
-                    text=c.subject,
-                    intent_label="outcome" if c.category in ("feature", "bugfix") else "routine",
-                    polarity_label=0.8 if c.category == "feature" else 0.5,
-                    auto_save=False,
-                )
+                # 3. Feed neural mind with real commit message if available
+                if engine is not None:
+                    engine.learn_step(
+                        text=c.subject,
+                        intent_label="outcome" if c.category in ("feature", "bugfix") else "routine",
+                        polarity_label=0.8 if c.category == "feature" else 0.5,
+                        auto_save=False,
+                    )
 
                 synced_count += 1
 
             conn.commit()
-            engine.save_brain()
+            if engine is not None:
+                engine.save_brain()
             self.last_seen_hash = commits[0].commit_hash if commits else None
 
         finally:

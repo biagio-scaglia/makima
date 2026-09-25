@@ -3,19 +3,23 @@ import sys
 import unittest
 import tempfile
 from pathlib import Path
-import torch
-
 # Permette l'import del modulo makima_lab durante l'esecuzione dei test
 sys.path.insert(0, str(Path(__file__).parent.parent / "python"))
 
-from makima_lab.neural import (
-    MakimaTokenizer,
-    MakimaMindNet,
-    MakimaNeuralEngine,
-    NeuralInferenceResult,
-)
+try:
+    import torch
+    from makima_lab.neural import (
+        MakimaTokenizer,
+        MakimaMindNet,
+        MakimaNeuralEngine,
+        NeuralInferenceResult,
+    )
+    HAS_TORCH = True
+except (ImportError, Exception):
+    HAS_TORCH = False
 
 
+@unittest.skipIf(not HAS_TORCH, "PyTorch non installato nell'ambiente")
 class TestMakimaNeuralMind(unittest.TestCase):
 
     def setUp(self):
