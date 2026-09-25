@@ -35,3 +35,21 @@ python -m venv .venv
 # Installazione in modalità editabile con dipendenze di sviluppo
 pip install -e ".[dev,research]"
 ```
+
+---
+
+## 🧠 Modulo Cognitivo Neurale (`makima_lab.neural`)
+
+Include l'architettura profonda **`MakimaMindNet`** in PyTorch:
+- **Self-Attention & BiGRU Encoder**: estrazione semantica da testo naturale in italiano/inglese.
+- **User Latent Memory State (GRU Cell)**: memoria latente a stato continuo $\mathbf{h}_{user} \in \mathbb{R}^{64}$ che evolve nel tempo.
+- **Online Gradient Descent**: apprendimento continuo in tempo reale con ottimizzatore AdamW su ogni interazione dell'utente (`makima tell`).
+- **Bayesian Bridge**: stima neurale dei parametri informativi $\text{Beta}(\alpha_0, \beta_0)$ e $\text{Poisson}(\lambda)$ per il calcolo formale senza allucinazioni.
+
+Comandi rapidi:
+```bash
+python -m makima_lab tell "Oggi ho iniziato un nuovo progetto e sto andando bene"
+python -m makima_lab neural "pioverà domani a Milano?"
+python -m makima_lab memory
+```
+

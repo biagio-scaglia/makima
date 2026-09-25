@@ -49,6 +49,9 @@ echo ===================================================
 echo               CONSOLE INTERATTIVA MAKIMA           
 echo ===================================================
 echo Comandi disponibili:
+echo   - tell ^<fatto/pensiero^>  : Confida un fatto a Makima (NLP + PyTorch + SQLite)
+echo   - neural ^<frase^>         : Ispezione neurale con Self-Attention
+echo   - memory                : Visualizza lo stato di memoria latente utente
 echo   - query ^<frase^>          : Analizza semantica NL ed estrae ForecastQuery
 echo   - targets               : Mostra dashboard di tutti i target monitorati
 echo   - mail                  : Genera il bollettino previsionale Laplace Mail
@@ -59,7 +62,7 @@ echo   - evaluate              : Mostra scorecard e Brier Skill Score
 echo   - poisson ^<lambda^>      : Calcola distribuzione temporale Poisson
 echo   - bernoulli ^<p^>         : Calcola momenti ed Entropia di Shannon
 echo   - status                : Mostra lo stato del core engine Rust
-echo   - eyes                  : Esegue l'animazione degli occhi
+echo   - eyes                  : Mostra il ritratto ASCII di Makima
 echo   - lab                   : Avvia la console interattiva Python Lab
 echo   - help                  : Mostra la guida comandi
 echo   - exit                  : Chiude la sessione

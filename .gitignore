@@ -50,3 +50,9 @@ Thumbs.db
 *.db-wal
 *.db-shm
 
+# Neural Model Weights & Checkpoints
+*.pt
+*.pth
+*.bin
+
+

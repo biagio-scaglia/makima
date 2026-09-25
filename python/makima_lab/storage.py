@@ -192,3 +192,63 @@ def compute_knowledge_base_from_store(store_data: dict[str, Any]) -> dict[str, d
             stats["rate_per_day"] = max(0.05, total_obs / 30.0)
 
     return kb
+
+
+def record_journal_entry(
+    content: str,
+    target: str | None = None,
+    intent: str | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    db_path: Path | str | None = None,
+) -> int:
+    """Salva una riflessione o fatto dell'utente nel database SQLite."""
+    import time
+    target_db = Path(db_path) if db_path is not None else get_default_db_path()
+    target_db.parent.mkdir(parents=True, exist_ok=True)
+    extracted_target = target or (tags[0] if tags else None)
+    extracted_intent = intent or "journal"
+    ts = int(time.time())
+
+    conn = sqlite3.connect(target_db)
+    try:
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS journal_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                raw_text TEXT NOT NULL,
+                extracted_target TEXT,
+                extracted_intent TEXT,
+                timestamp_sec INTEGER NOT NULL
+            );
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS event_log (
+                offset_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                topic TEXT NOT NULL,
+                target TEXT,
+                payload_json TEXT NOT NULL,
+                timestamp_sec INTEGER NOT NULL
+            );
+            """
+        )
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO journal_entries (raw_text, extracted_target, extracted_intent, timestamp_sec) VALUES (?, ?, ?, ?)",
+            (content, extracted_target, extracted_intent, ts),
+        )
+        entry_id = cur.lastrowid or 0
+        payload = json.dumps({"raw_text": content, "target": extracted_target, "intent": extracted_intent, "metadata": metadata or {}})
+        cur.execute(
+            "INSERT INTO event_log (topic, target, payload_json, timestamp_sec) VALUES (?, ?, ?, ?)",
+            ("journal.entry_added", extracted_target, payload, ts),
+        )
+        conn.commit()
+        return entry_id
+    finally:
+        conn.close()
+
+

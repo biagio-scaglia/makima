@@ -1,4 +1,4 @@
-"""CLI e Console Interattiva per Makima Python Lab."""
+"""CLI e Console Interattiva per Makima Python Lab & Neural Mind."""
 
 import sys
 from pathlib import Path
@@ -15,44 +15,81 @@ if sys.platform == "win32":
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from makima_lab.distributions import Bernoulli, BetaDistribution, PoissonDistribution
-from makima_lab.nlp import SemanticForecastPipeline, SemanticQueryParser
+from makima_lab.nlp import SemanticForecastPipeline
+from makima_lab.neural import get_neural_engine
+from makima_lab.storage import record_journal_entry
 
 
 def print_banner():
     print("===================================================")
-    print("             MAKIMA PYTHON RESEARCH LAB            ")
+    print("        MAKIMA PYTHON RESEARCH LAB & NEURAL MIND   ")
     print("===================================================")
-    print("Ambiente di Ricerca Statistica e NLP Prototyping")
-    print("Moduli caricati: Distribuzioni, Valutazione Calibrazione, Semantic NLP")
-    print("Digita 'query <frase>', 'demo', 'update', 'bernoulli', 'poisson', o 'exit'.")
+    print("Ambiente di Ricerca: PyTorch Cognitive Net, NLP, Bayes")
+    print("Comandi disponibili:")
+    print("  - tell <pensiero/fatto>     : Confida un fatto a Makima (NLP + Neural + SQLite)")
+    print("  - neural <frase>            : Ispezione della percezione neurale (Self-Attention)")
+    print("  - memory                    : Visualizza lo stato di memoria latente utente")
+    print("  - query <domanda>           : Risoluzione semantica e calcolo probabilistico")
+    print("  - update <succ> <fail>      : Calcolo distribuzione coniugata Beta")
+    print("  - bernoulli <p> / poisson <lambda>")
+    print("  - exit                      : Torna al launcher principale")
     print("===================================================\n")
 
 
-def run_demo():
-    print("--- Demo: Inferenza Bayesiana con Prior Coniugato Beta ---")
-    prior = BetaDistribution(1.0, 1.0)
-    print("1. Prior non-informativo (uniforme):")
-    print(f"   {prior}")
-    print(f"   {prior.ascii_density()}")
-    print()
+def handle_journal(text: str) -> None:
+    """Registra una frase dell'utente, la percepisce con la rete neurale, aggiorna la memoria e salva su SQLite."""
+    engine = get_neural_engine()
+    perception = engine.perceive(text, update_memory=True)
 
-    print("2. Osservazione di 7 successi su 10 tentativi...")
-    post1 = prior.bayesian_update(successes=7, failures=3)
-    print(f"   Posterior: {post1}")
-    print(f"   {post1.ascii_density()}")
-    print()
+    # Passo di apprendimento online automatico
+    loss = engine.learn_step(
+        text=text,
+        intent_label=perception.intent,
+        polarity_label=perception.polarity,
+        auto_save=True,
+    )
 
-    print("3. Arrivo di ulteriori 15 successi e 2 fallimenti...")
-    post2 = post1.bayesian_update(successes=15, failures=2)
-    print(f"   Posterior raffinato: {post2}")
-    print(f"   {post2.ascii_density()}")
-    print(f"   Varianza ridotta (incertezza epistemica calata): {post2.variance:.6f}")
-    print()
+    tags = [perception.intent]
+    entry_id = record_journal_entry(
+        content=text,
+        tags=tags,
+        metadata={
+            "neural_intent": perception.intent,
+            "confidence": perception.intent_confidence,
+            "polarity": perception.polarity,
+            "memory_norm": perception.memory_norm,
+            "loss": loss,
+        },
+    )
+
+    print("\n[ Makima ha percepito e memorizzato ]")
+    print(perception.format_report())
+    print(f"\n-> Registrato in SQLite (.makima/makima.db) [Entry #{entry_id}]")
+    print(f"-> Passo di apprendimento neurale completato (Loss AdamW: {loss:.4f})")
+    print(f"-> Memoria latente utente aggiornata (Norma L2: {perception.memory_norm:.4f})\n")
+
+
+def handle_neural_inspection(text: str) -> None:
+    engine = get_neural_engine()
+    res = engine.perceive(text, update_memory=False)
+    print("\n" + res.format_report() + "\n")
+
+
+def handle_memory_status() -> None:
+    engine = get_neural_engine()
+    import torch
+    norm = float(torch.norm(engine.user_memory).item())
+    vec_sample = engine.user_memory[0, :8].tolist()
+    print("\n--- [ Stato Memoria Latente Utente (GRU Cell) ] ---")
+    print(f"Norma L2 Totale:          {norm:.4f}")
+    print(f"Passi di Apprendimento:   {engine.total_learning_steps}")
+    print(f"Campione Vettore [0..7]:  {[round(x, 4) for x in vec_sample]}")
+    print(f"Dispositivo PyTorch:      {engine.device}")
+    print("--------------------------------------------------\n")
 
 
 def interactive_loop():
     print_banner()
-    run_demo()
     pipeline = SemanticForecastPipeline()
 
     while True:
@@ -67,8 +104,14 @@ def interactive_loop():
         if cmd in ("exit", "quit", "q"):
             print("Uscita dal laboratorio Python.")
             break
-        elif cmd == "demo":
-            run_demo()
+        elif cmd.startswith("tell ") or cmd.startswith("journal "):
+            text = cmd.split(maxsplit=1)[1].strip()
+            handle_journal(text)
+        elif cmd.startswith("neural "):
+            text = cmd.split(maxsplit=1)[1].strip()
+            handle_neural_inspection(text)
+        elif cmd == "memory":
+            handle_memory_status()
         elif cmd.startswith("query ") or cmd.startswith("nlp "):
             text = cmd.split(maxsplit=1)[1].strip()
             result = pipeline.execute(text)
@@ -110,8 +153,10 @@ def interactive_loop():
                 print("Uso: poisson <lambda>  (es: poisson 3.5)")
         elif cmd in ("help", "h"):
             print("Comandi disponibili:")
-            print("  query <frase>           Analizza una frase naturale e genera una ForecastQuery")
-            print("  demo                    Esegue la simulazione di aggiornamento bayesiano")
+            print("  tell <testo>            Confida un fatto, pensiero o abitudine a Makima")
+            print("  neural <frase>          Analizza la rappresentazione neurale e attention")
+            print("  memory                  Mostra la memoria latente e i pesi appresi")
+            print("  query <frase>           Analizza una frase naturale con pipeline probabilistica")
             print("  update <succ> <fail>    Calcola distribuzione Beta da successi/fallimenti")
             print("  bernoulli <p>           Analizza probabilità ed entropia di Bernoulli")
             print("  poisson <lambda>        Calcola probabilità di conteggio Poisson")
@@ -120,5 +165,27 @@ def interactive_loop():
             print(f"Comando non riconosciuto: '{cmd}'. Digita 'help' per la lista comandi.")
 
 
+def main():
+    if len(sys.argv) > 1:
+        subcmd = sys.argv[1]
+        if subcmd in ("tell", "journal") and len(sys.argv) > 2:
+            text = " ".join(sys.argv[2:])
+            handle_journal(text)
+        elif subcmd == "neural" and len(sys.argv) > 2:
+            text = " ".join(sys.argv[2:])
+            handle_neural_inspection(text)
+        elif subcmd == "memory":
+            handle_memory_status()
+        elif subcmd in ("query", "nlp") and len(sys.argv) > 2:
+            text = " ".join(sys.argv[2:])
+            pipeline = SemanticForecastPipeline()
+            res = pipeline.execute(text)
+            print("\n" + res.format_report() + "\n")
+        else:
+            interactive_loop()
+    else:
+        interactive_loop()
+
+
 if __name__ == "__main__":
-    interactive_loop()
+    main()

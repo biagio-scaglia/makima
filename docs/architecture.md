@@ -225,11 +225,39 @@ Makima non produce mai un singolo valore numerico privo di contesto. L'interpret
 
 ---
 
+## 10. Cognitive Neural Mind & Continuous Learning (`MakimaMindNet`)
+
+Il modulo `makima_lab.neural` introduce una rete neurale profonda in PyTorch concepita per estrarre semantica densa, intenti e tracciare la memoria dell'utente nel continuo:
+
+```text
+       [ Testo Naturale / Riflessioni Utente ]
+                          │
+                          ▼
+            [ Tokenizer & Embedding Layer ]
+                          │
+                          ▼
+       [ Bidirectional GRU + Self-Attention ]
+                          │
+                          ▼
+        [ User Latent Memory Cell (GRU Cell) ] ◄── (Stato continuo persistente)
+        /                 │                \
+       ▼                  ▼                 ▼
+[ Intent Classifier ]  [ Target Embedding ]  [ Bayesian Calibration Bridge ]
+  (Query/Journal/...)   (Cosine Similarity)   (Prior α, β, λ & Polarity)
+```
+
+1. **Memoria Latente Recorrente**: Un vettore di stato continuo $\mathbf{h}_{user} \in \mathbb{R}^{64}$ evolve ad ogni interazione (`makima tell`), memorizzando abitudini e contesto dell'utente.
+2. **Online Gradient Backpropagation**: La rete neurale esegue aggiornamenti di gradiente in tempo reale (AdamW) con salvataggio dei pesi in `.makima/makima_brain.pt`.
+3. **Ponte Bayesiano Trasparente**: I layer di calibrazione proiettano la rappresentazione neurale nei parametri analitici della distribuzione a priori $\text{Beta}(\alpha_0, \beta_0)$ e $\text{Poisson}(\lambda)$, garantendo calibrazione probabilistica senza allucinazioni.
+
+---
+
 ## 11. Testing Strategy
 
 La validità del sistema è garantita da più livelli di test:
 - **Rust Unit Tests**: correttezza dei singoli tipi, invarianti di dominio e funzioni matematiche elementari.
 - **Rust Integration Tests**: pipeline end-to-end all'interno dei crate.
+- **Neural Tests**: verifica della convergenza dell'encoder `MakimaMindNet`, propagazione della memoria e online learning.
 - **Mathematical Property-Based Tests**: verifica di proprietà assiomatiche (es. $\sum P(X) = 1$, divergenza KL $\ge 0$, simmetria dove prevista).
 - **Python Lab Tests**: verifica della riproducibilità numerica degli esperimenti statistici e coerenza del setup.
 

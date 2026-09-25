@@ -64,6 +64,10 @@ fn print_help() {
     println!(
         "    query <frase>         Interroga il sistema in linguaggio naturale (NLP Pipeline)"
     );
+    println!(
+        "    tell <testo>          Confida un fatto/abitudine a Makima (Neural Mind + SQLite)"
+    );
+    println!("    journal <testo>       Registra una riflessione o evento nella memoria di Makima");
     println!("    predict <target>      Genera una previsione probabilistica interpretabile");
     println!("    observe <target> <v>  Registra un'osservazione storica (1/0 o true/false)");
     println!("    outcome <target> <v>  Registra l'esito reale (Ground Truth) e valuta la stima");
@@ -71,13 +75,18 @@ fn print_help() {
     println!("    mail                  Genera il bollettino previsionale Laplace Mail");
     println!("    evaluate              Mostra il report di accuratezza e Brier Skill Score");
     println!("    status                Mostra lo stato diagnostico del motore e del sistema\n");
+    println!("COMANDI COGNITIVI & NEURALI:");
+    println!(
+        "    neural <frase>        Ispezione della percezione neurale (Self-Attention & Priors)"
+    );
+    println!("    memory                Visualizza lo stato della memoria latente utente\n");
     println!("COMANDI MATEMATICI & PROBABILISTICI:");
     println!("    poisson <lambda>      Calcola distribuzione di frequenza temporale Poisson");
     println!(
         "    bernoulli <p>         Calcola momenti ed Entropia di Shannon per eventi binari\n"
     );
     println!("STRUMENTI & AMBIENTI:");
-    println!("    eyes                  Esegue l'animazione ASCII dello sguardo di Makima");
+    println!("    eyes                  Mostra il ritratto ASCII di Makima");
     println!("    lab                   Avvia il laboratorio scientifico interattivo Python");
     println!("    help                  Mostra questa guida di supporto\n");
     println!("OPZIONI:");
@@ -469,6 +478,58 @@ fn main() -> ExitCode {
             } else {
                 handle_bernoulli(&args[2]);
                 ExitCode::SUCCESS
+            }
+        }
+        "tell" | "journal" => {
+            if args.len() < 3 {
+                eprintln!("Uso: makima tell <testo o fatto da confidare>");
+                eprintln!("Esempio: makima tell \"Oggi ho completato la sessione di palestra\"");
+                ExitCode::FAILURE
+            } else {
+                let full_text = args[2..].join(" ");
+                let mut cmd = std::process::Command::new("python");
+                cmd.env("PYTHONPATH", "python");
+                cmd.args(["-m", "makima_lab", "tell", &full_text]);
+                match cmd.status() {
+                    Ok(status) if status.success() => ExitCode::SUCCESS,
+                    Ok(_) => ExitCode::FAILURE,
+                    Err(err) => {
+                        eprintln!("Errore esecuzione pipeline neurale Python: {err}");
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+        }
+        "neural" => {
+            if args.len() < 3 {
+                eprintln!("Uso: makima neural <frase da ispezionare>");
+                ExitCode::FAILURE
+            } else {
+                let full_text = args[2..].join(" ");
+                let mut cmd = std::process::Command::new("python");
+                cmd.env("PYTHONPATH", "python");
+                cmd.args(["-m", "makima_lab", "neural", &full_text]);
+                match cmd.status() {
+                    Ok(status) if status.success() => ExitCode::SUCCESS,
+                    Ok(_) => ExitCode::FAILURE,
+                    Err(err) => {
+                        eprintln!("Errore esecuzione analisi neurale: {err}");
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+        }
+        "memory" => {
+            let mut cmd = std::process::Command::new("python");
+            cmd.env("PYTHONPATH", "python");
+            cmd.args(["-m", "makima_lab", "memory"]);
+            match cmd.status() {
+                Ok(status) if status.success() => ExitCode::SUCCESS,
+                Ok(_) => ExitCode::FAILURE,
+                Err(err) => {
+                    eprintln!("Errore lettura memoria neurale: {err}");
+                    ExitCode::FAILURE
+                }
             }
         }
         "eyes" | "anim" => {
