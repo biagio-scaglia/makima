@@ -1,5 +1,7 @@
 //! CLI di Makima per l'interazione da riga di comando con il motore probabilistico.
 
+mod eyes;
+
 use makima_core::MakimaEngine;
 use std::env;
 use std::process::ExitCode;
@@ -10,8 +12,10 @@ fn print_help() {
     println!("    makima <COMANDO> [OPZIONI]\n");
     println!("COMANDI:");
     println!("    status        Mostra lo stato diagnostico del motore e del sistema");
+    println!("    eyes          Esegue l'animazione ASCII dello sguardo di Makima");
     println!("    help          Mostra questa guida di supporto\n");
     println!("OPZIONI:");
+    println!("    --anim        Abilita l'animazione di apertura degli occhi prima dello status");
     println!("    -h, --help    Mostra la guida");
     println!("    -V, --version Mostra la versione di Makima");
 }
@@ -20,7 +24,15 @@ fn print_version() {
     println!("makima {}", env!("CARGO_PKG_VERSION"));
 }
 
-fn handle_status() {
+fn handle_status(animated: bool) {
+    if animated {
+        eyes::play_eye_animation(1);
+    } else {
+        println!();
+        eyes::print_static_eyes();
+        println!();
+    }
+
     let engine = MakimaEngine::new();
     let status = engine.status();
 
@@ -44,7 +56,12 @@ fn main() -> ExitCode {
 
     match args[1].as_str() {
         "status" => {
-            handle_status();
+            let animated = args.iter().any(|arg| arg == "--anim");
+            handle_status(animated);
+            ExitCode::SUCCESS
+        }
+        "eyes" | "anim" => {
+            eyes::play_eye_animation(2);
             ExitCode::SUCCESS
         }
         "help" | "-h" | "--help" => {
