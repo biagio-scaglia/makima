@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = []
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Biagio Scaglia"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/biagio-scaglia/makima"
+homepage = "https://github.com/biagio-scaglia/makima"
+readme = "README.md"
