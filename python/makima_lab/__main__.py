@@ -15,7 +15,7 @@ if sys.platform == "win32":
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from makima_lab.distributions import Bernoulli, BetaDistribution, PoissonDistribution
-from makima_lab.nlp import SemanticQueryParser
+from makima_lab.nlp import SemanticForecastPipeline, SemanticQueryParser
 
 
 def print_banner():
@@ -53,7 +53,7 @@ def run_demo():
 def interactive_loop():
     print_banner()
     run_demo()
-    nlp_parser = SemanticQueryParser()
+    pipeline = SemanticForecastPipeline()
 
     while True:
         try:
@@ -71,9 +71,9 @@ def interactive_loop():
             run_demo()
         elif cmd.startswith("query ") or cmd.startswith("nlp "):
             text = cmd.split(maxsplit=1)[1].strip()
-            parsed = nlp_parser.parse(text)
-            print("\n[ Makima NLP Semantic Parser ]")
-            print(parsed.summary())
+            result = pipeline.execute(text)
+            print()
+            print(result.format_report())
             print()
         elif cmd.startswith("update"):
             parts = cmd.split()

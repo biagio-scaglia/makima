@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "python"))
 from makima_lab.nlp import (
     ForecastQuery,
     Intent,
+    SemanticForecastPipeline,
     SemanticQueryParser,
     TemporalRelation,
     TemporalWindow,
@@ -21,6 +22,7 @@ class TestNLPParser(unittest.TestCase):
 
     def setUp(self):
         self.parser = SemanticQueryParser()
+        self.pipeline = SemanticForecastPipeline(self.parser)
 
     def test_when_next_release(self):
         query = "Quando rilascerò il prossimo framework?"
@@ -93,6 +95,20 @@ class TestNLPParser(unittest.TestCase):
         self.assertIn("RELEASE_PREDICTION", summary)
         self.assertIn("framework_release", summary)
         self.assertIn("Valida per Core:  Si", summary)
+
+    def test_pipeline_execution_valid_query(self):
+        res = self.pipeline.execute("Qual è la probabilità che rilasci framework entro dicembre?")
+        self.assertTrue(res.query.is_valid_forecast)
+        self.assertIsNotNone(res.posterior)
+        self.assertIsNotNone(res.temporal_probability)
+        self.assertGreater(res.posterior.mean, 0.5)
+        self.assertIn("MAKIMA SEMANTIC FORECAST PIPELINE", res.format_report())
+
+    def test_pipeline_execution_rejected_query(self):
+        res = self.pipeline.execute("Quanto è bello il mio framework?")
+        self.assertFalse(res.query.is_valid_forecast)
+        self.assertIsNone(res.posterior)
+        self.assertIn("RIFIUTATA", res.format_report())
 
 
 if __name__ == "__main__":

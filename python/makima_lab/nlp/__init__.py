@@ -1,4 +1,4 @@
-"""Modulo NLP di Makima Lab per il Semantic Parsing e l'estrazione temporale."""
+"""Modulo NLP di Makima Lab per il Semantic Parsing, estrazione temporale ed esecuzione previsionale."""
 
 from makima_lab.nlp.models import (
     ForecastQuery,
@@ -7,6 +7,10 @@ from makima_lab.nlp.models import (
     TemporalWindow,
 )
 from makima_lab.nlp.parser import SemanticQueryParser
+from makima_lab.nlp.pipeline import (
+    SemanticForecastPipeline,
+    SemanticForecastResult,
+)
 
 __all__ = [
     "ForecastQuery",
@@ -14,4 +18,6 @@ __all__ = [
     "TemporalRelation",
     "TemporalWindow",
     "SemanticQueryParser",
+    "SemanticForecastPipeline",
+    "SemanticForecastResult",
 ]

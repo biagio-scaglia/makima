@@ -14,6 +14,9 @@ fn print_help() {
     println!("UTILIZZO:");
     println!("    makima <COMANDO> [OPZIONI]\n");
     println!("COMANDI PREVISIONALI & DOMINIO:");
+    println!(
+        "    query <frase>         Interroga il sistema in linguaggio naturale (NLP Pipeline)"
+    );
     println!("    predict <target>      Genera una previsione probabilistica interpretabile");
     println!("    observe <target> <v>  Registra un'osservazione storica (1/0 o true/false)");
     println!("    outcome <target> <v>  Registra l'esito reale (Ground Truth) e valuta la stima");
@@ -301,6 +304,24 @@ fn handle_bernoulli(p_str: &str) {
     }
 }
 
+fn handle_query(query_text: &str) -> ExitCode {
+    let mut cmd = std::process::Command::new("python");
+    cmd.env("PYTHONPATH", "python");
+    cmd.args([
+        "-c",
+        "import sys; from makima_lab.nlp import SemanticForecastPipeline; p = SemanticForecastPipeline(); print('\\n' + p.execute(sys.argv[1]).format_report())",
+        query_text,
+    ]);
+    match cmd.status() {
+        Ok(status) if status.success() => ExitCode::SUCCESS,
+        Ok(_) => ExitCode::FAILURE,
+        Err(err) => {
+            eprintln!("Impossibile eseguire il modulo Python NLP: {err}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
 
@@ -310,6 +331,16 @@ fn main() -> ExitCode {
     }
 
     match args[1].as_str() {
+        "query" | "nlp" => {
+            if args.len() < 3 {
+                eprintln!("Uso: makima query <frase in linguaggio naturale>");
+                eprintln!("Esempio: makima query Quando rilascerò il prossimo framework?");
+                ExitCode::FAILURE
+            } else {
+                let query_text = args[2..].join(" ");
+                handle_query(&query_text)
+            }
+        }
         "status" => {
             let animated = args.iter().any(|arg| arg == "--anim");
             handle_status(animated);

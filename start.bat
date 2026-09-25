@@ -93,13 +93,13 @@ if /i "!USER_INPUT!"=="py" (
 :: Routing per query semantica in linguaggio naturale
 set "PREFIX=!USER_INPUT:~0,6!"
 if /i "!PREFIX!"=="query " (
-    python -c "from makima_lab.nlp import SemanticQueryParser; p = SemanticQueryParser(); print('\n[ Makima NLP Semantic Parser ]\n' + p.parse('!USER_INPUT:~6!').summary())"
+    python -c "from makima_lab.nlp import SemanticForecastPipeline; p = SemanticForecastPipeline(); print('\n' + p.execute('!USER_INPUT:~6!').format_report())"
     echo.
     goto INTERACTIVE_LOOP
 )
 set "PREFIX4=!USER_INPUT:~0,4!"
 if /i "!PREFIX4!"=="nlp " (
-    python -c "from makima_lab.nlp import SemanticQueryParser; p = SemanticQueryParser(); print('\n[ Makima NLP Semantic Parser ]\n' + p.parse('!USER_INPUT:~4!').summary())"
+    python -c "from makima_lab.nlp import SemanticForecastPipeline; p = SemanticForecastPipeline(); print('\n' + p.execute('!USER_INPUT:~4!').format_report())"
     echo.
     goto INTERACTIVE_LOOP
 )
