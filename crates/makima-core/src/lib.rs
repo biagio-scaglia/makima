@@ -3,11 +3,13 @@
 //! `makima-core` costituisce il motore computazionale e probabilistico di Makima.
 //!
 //! Questo crate ospita il dominio fondamentale per la raccolta di evidenze empiriche,
-//! la modellazione statistica interpretabile, la quantificazione dell'incertezza
-//! e l'esecuzione di simulazioni previsionali.
+//! la modellazione statistica interpretabile, la quantificazione dell'incertezza,
+//! l'esecuzione di simulazioni previsionali e la valutazione della calibrazione.
+pub mod eval;
 pub mod forecast;
 pub mod prob;
 
+pub use eval::{EvaluationReport, Evaluator, Outcome, Scoring};
 pub use forecast::{Forecast, ForecastError};
 pub use prob::{
     Bernoulli, BetaDistribution, ContinuousDistribution, DiscreteDistribution, Distribution,
@@ -44,6 +46,8 @@ pub struct EngineStatus {
     pub state: EngineState,
     /// Numero totale di osservazioni storiche registrate.
     pub total_observations: usize,
+    /// Numero totale di esiti reali registrati per la valutazione.
+    pub total_outcomes: usize,
 }
 
 /// Identificativo univoco per una singola osservazione empirica.
@@ -81,14 +85,16 @@ impl Observation {
     }
 }
 
-/// Motore principale di previsione probabilistica.
+/// Motore principale di previsione probabilistica e valutazione.
 ///
-/// Gestisce il ciclo di vita delle evidenze storiche, lo stato dei modelli e
-/// la generazione di previsioni calibrate.
+/// Gestisce il ciclo di vita delle evidenze storiche, lo stato dei modelli,
+/// la generazione di previsioni calibrate e la misurazione continua degli errori.
 #[derive(Debug, Default)]
 pub struct MakimaEngine {
     state: EngineState,
     observations: Vec<Observation>,
+    outcomes: Vec<Outcome>,
+    evaluator: Evaluator,
 }
 
 impl MakimaEngine {
@@ -111,6 +117,7 @@ impl MakimaEngine {
             version: self.version(),
             state: self.state,
             total_observations: self.observations.len(),
+            total_outcomes: self.outcomes.len(),
         }
     }
 
@@ -132,10 +139,32 @@ impl MakimaEngine {
         id
     }
 
+    /// Registra l'esito reale verificatosi per un target, associandolo all'ultima previsione emessa.
+    pub fn record_outcome(
+        &mut self,
+        target: impl Into<String>,
+        occurred: bool,
+        timestamp_sec: i64,
+    ) {
+        let target_str = target.into();
+        // Calcola la previsione che il modello avrebbe fatto prima dell'esito
+        let forecast = self.predict_target(&target_str);
+        self.evaluator
+            .add_prediction_outcome(forecast.probability, occurred);
+        self.outcomes
+            .push(Outcome::new(target_str, occurred, timestamp_sec));
+    }
+
     /// Restituisce la lista di osservazioni storiche attualmente caricate.
     #[must_use]
     pub fn observations(&self) -> &[Observation] {
         &self.observations
+    }
+
+    /// Restituisce la lista di esiti reali registrati.
+    #[must_use]
+    pub fn outcomes(&self) -> &[Outcome] {
+        &self.outcomes
     }
 
     /// Genera una stima probabilistica per il target specificato utilizzando un prior uniforme.
@@ -148,6 +177,12 @@ impl MakimaEngine {
     #[must_use]
     pub fn predict_target_with_prior(&self, target: &str, prior: BetaDistribution) -> Forecast {
         Forecast::from_observations(target, &self.observations, prior)
+    }
+
+    /// Genera il report di valutazione delle performance previsionali (Brier Score, Skill Score).
+    #[must_use]
+    pub fn evaluate_performance(&self) -> Option<EvaluationReport> {
+        self.evaluator.evaluate()
     }
 }
 
@@ -162,6 +197,7 @@ mod tests {
 
         assert_eq!(status.state, EngineState::Ready);
         assert_eq!(status.total_observations, 0);
+        assert_eq!(status.total_outcomes, 0);
         assert_eq!(status.version, "0.1.0");
         assert!(engine.observations().is_empty());
     }
@@ -191,6 +227,20 @@ mod tests {
         assert_eq!(forecast.evidence_count, 3);
         assert_eq!(forecast.evidence_ids.len(), 3);
         assert!((forecast.probability.value() - 0.6).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_engine_evaluation() {
+        let mut engine = MakimaEngine::new();
+        engine.record_binary("framework_release", true, 1_700_000_000);
+        engine.record_binary("framework_release", true, 1_700_086_400);
+        engine.record_outcome("framework_release", true, 1_700_172_800);
+
+        let report = engine.evaluate_performance();
+        assert!(report.is_some());
+        let rep = report.expect("report presente");
+        assert_eq!(rep.total_evaluated, 1);
+        assert!(rep.mean_brier_score < 0.25);
     }
 
     #[test]

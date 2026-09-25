@@ -39,6 +39,16 @@ class BetaDistribution:
         self.alpha = float(alpha)
         self.beta = float(beta)
 
+    @classmethod
+    def uniform(cls) -> "BetaDistribution":
+        """Crea un prior uniforme Beta(1, 1)."""
+        return cls(1.0, 1.0)
+
+    @classmethod
+    def jeffreys(cls) -> "BetaDistribution":
+        """Crea un prior di Jeffreys Beta(0.5, 0.5)."""
+        return cls(0.5, 0.5)
+
     @property
     def mean(self) -> float:
         return self.alpha / (self.alpha + self.beta)

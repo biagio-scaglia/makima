@@ -2,7 +2,7 @@
 
 mod eyes;
 
-use makima_core::{Forecast, MakimaEngine, Observation, ObservationId};
+use makima_core::{Forecast, MakimaEngine, Observation, ObservationId, Scoring};
 use std::env;
 use std::process::ExitCode;
 
@@ -13,7 +13,9 @@ fn print_help() {
     println!("COMANDI:");
     println!("    status                Mostra lo stato diagnostico del motore e del sistema");
     println!("    predict <target>      Genera una previsione probabilistica interpretabile");
-    println!("    observe <target> <v>  Registra un'osservazione (1/0 o true/false)");
+    println!("    observe <target> <v>  Registra un'osservazione storica (1/0 o true/false)");
+    println!("    outcome <target> <v>  Registra l'esito reale (Ground Truth) e valuta la stima");
+    println!("    evaluate              Mostra il report di accuratezza e Brier Skill Score");
     println!("    eyes                  Esegue l'animazione ASCII dello sguardo di Makima");
     println!("    lab                   Avvia il laboratorio scientifico interattivo Python");
     println!("    help                  Mostra questa guida di supporto\n");
@@ -27,7 +29,7 @@ fn print_version() {
     println!("makima {}", env!("CARGO_PKG_VERSION"));
 }
 
-/// Inizializza un motore di default con alcune evidenze storiche di riferimento.
+/// Inizializza un motore di default con alcune evidenze storiche ed esiti di riferimento.
 fn create_engine_with_sample_data() -> MakimaEngine {
     let mut engine = MakimaEngine::new();
 
@@ -54,6 +56,10 @@ fn create_engine_with_sample_data() -> MakimaEngine {
             *val,
         ));
     }
+
+    // Esiti reali storici già verificati nel passato
+    engine.record_outcome("framework_release", true, 1_700_650_000);
+    engine.record_outcome("daily_build", true, 1_700_200_000);
 
     engine
 }
@@ -85,6 +91,7 @@ fn handle_status(animated: bool) {
     println!("Versione Core:       {}", status.version);
     println!("Stato Operativo:     {}", status.state);
     println!("Osservazioni Totali: {}", status.total_observations);
+    println!("Esiti Valutati:      {}", status.total_outcomes);
     println!("Architettura:        Ibrida (Rust Core + Python Lab)");
     println!("========================================");
 }
@@ -170,6 +177,57 @@ fn handle_observe(target: &str, value_str: &str) {
     println!();
 }
 
+fn handle_outcome(target: &str, value_str: &str) {
+    let actual_occurred = match value_str.to_lowercase().as_str() {
+        "1" | "true" | "t" | "success" | "ok" | "s" => true,
+        "0" | "false" | "f" | "failure" | "fail" => false,
+        _ => {
+            eprintln!("Errore: valore esito non valido '{value_str}'. Usa 1/0 o true/false.");
+            return;
+        }
+    };
+
+    let mut engine = create_engine_with_sample_data();
+    let forecast = engine.predict_target(target);
+    let brier = Scoring::brier_score(forecast.probability, actual_occurred);
+    let log_loss = Scoring::log_loss(forecast.probability, actual_occurred);
+
+    engine.record_outcome(target, actual_occurred, 1_700_800_000);
+
+    println!("\n============================================================");
+    println!("            VALUTAZIONE GROUND TRUTH (ESITO REALE)          ");
+    println!("============================================================");
+    println!("Target:               {target}");
+    println!(
+        "Previsione Emessa:    {:.2}%",
+        forecast.probability.value() * 100.0
+    );
+    println!(
+        "Esito Reale:          {}",
+        if actual_occurred {
+            "Si e' Verificato (1)"
+        } else {
+            "Non si e' Verificato (0)"
+        }
+    );
+    println!(
+        "Brier Score Singolo:  {:.4}  (0.0 = perfetto, 0.25 = baseline casuale)",
+        brier
+    );
+    println!("Log Loss Singola:     {:.4}", log_loss);
+    println!("============================================================\n");
+}
+
+fn handle_evaluate() {
+    let engine = create_engine_with_sample_data();
+    match engine.evaluate_performance() {
+        Some(report) => println!("\n{report}\n"),
+        None => println!(
+            "\nNessuna previsione confrontata con esiti reali disponibile per la valutazione.\n"
+        ),
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
 
@@ -203,6 +261,20 @@ fn main() -> ExitCode {
                 handle_observe(&args[2], &args[3]);
                 ExitCode::SUCCESS
             }
+        }
+        "outcome" | "actual" => {
+            if args.len() < 4 {
+                eprintln!("Uso: makima outcome <target> <1|0|true|false>");
+                eprintln!("Esempio: makima outcome framework_release 1");
+                ExitCode::FAILURE
+            } else {
+                handle_outcome(&args[2], &args[3]);
+                ExitCode::SUCCESS
+            }
+        }
+        "evaluate" | "score" | "eval" => {
+            handle_evaluate();
+            ExitCode::SUCCESS
         }
         "eyes" | "anim" => {
             eyes::play_eye_animation(2);
