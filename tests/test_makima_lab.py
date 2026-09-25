@@ -62,6 +62,9 @@ class TestMakimaLab(unittest.TestCase):
         self.assertEqual(report["total_evaluated"], 3)
         self.assertLess(report["mean_brier_score"], 0.25)
         self.assertGreater(report["brier_skill_score"], 0.0)
+        self.assertIn("expected_calibration_error", report)
+        self.assertIn("calibration_bins", report)
+        self.assertEqual(len(report["calibration_bins"]), 5)
 
 
 if __name__ == "__main__":

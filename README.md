@@ -75,15 +75,20 @@ Makima segue un approccio rigoroso e trasparente:
 
 ---
 
-## 🗺️ Roadmap Iniziale
+## 🗺️ Roadmap di Sviluppo
 
-- [x] **Fase 1**: Inizializzazione workspace Rust, tooling di qualità e documentazione di base.
-- [ ] **Fase 2**: Creazione del crate `makima-core` con entità di dominio e motore iniziale.
-- [ ] **Fase 3**: Creazione del crate `makima-cli` con comando di health/status minimale.
-- [ ] **Fase 4**: Configurazione del laboratorio scientifico Python (`pyproject.toml`, `makima_lab`).
-- [ ] **Fase 5**: Documentazione architetturale dettagliata (`docs/architecture.md`).
-- [ ] **Fase 6**: Documentazione dei fondamenti matematici e probabilistici previsti (`docs/mathematics.md`).
-- [ ] **Fase 7**: Tooling avanzato di test e controlli di qualità continui.
+- [x] **Fase 1**: Inizializzazione workspace Rust, tooling di qualità (`rustfmt`, `clippy`) e documentazione di base.
+- [x] **Fase 2**: Creazione del crate `makima-core` con entità di dominio (`Observation`, `ObservationId`, `MakimaEngine`).
+- [x] **Fase 3**: Creazione del crate `makima-cli` con animazione ASCII concentric eyes e diagnostica di stato.
+- [x] **Fase 4**: Configurazione del laboratorio scientifico Python (`makima_lab`, `pyproject.toml`).
+- [x] **Fase 5**: Specifiche architetturali formali (`docs/architecture.md`) e 15 pilastri di interpretabilità.
+- [x] **Fase 6**: Fondamenti matematici (`Bernoulli`, `BetaDistribution`, `PoissonDistribution`) ed inferenza bayesiana.
+- [x] **Fase 7**: Valutazione statistica (*Proper Scoring Rules*, Brier Score, Log Loss, Brier Skill Score).
+- [x] **Fase 8**: NLP Semantic Parsing (`SemanticQueryParser`, `ForecastQuery`, `TemporalWindow`) e Pipeline semantica NL.
+- [x] **Fase 9**: Persistenza dello stato su disco ([`.makima/store.json`](.makima/store.json)) condiviso tra Rust e Python.
+- [x] **Fase 10**: Calibrazione empirica (*Expected Calibration Error*, *MCE*, *Reliability Diagrams*).
+- [ ] **Fase 11**: Multi-Target Dashboard (`makima targets`) e monitoraggio parallelo.
+- [ ] **Fase 12**: Bollettino previsionale automatico (*Laplace Mail Bulletin*).
 
 ---
 

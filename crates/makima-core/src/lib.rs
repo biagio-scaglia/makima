@@ -10,7 +10,7 @@ pub mod forecast;
 pub mod prob;
 pub mod storage;
 
-pub use eval::{EvaluationReport, Evaluator, Outcome, Scoring};
+pub use eval::{CalibrationBin, EvaluationReport, Evaluator, Outcome, Scoring};
 pub use forecast::{Forecast, ForecastError};
 pub use prob::{
     Bernoulli, BetaDistribution, ContinuousDistribution, DiscreteDistribution, Distribution,
