@@ -5,6 +5,12 @@
 //! Questo crate ospita il dominio fondamentale per la raccolta di evidenze empiriche,
 //! la modellazione statistica interpretabile, la quantificazione dell'incertezza
 //! e l'esecuzione di simulazioni previsionali.
+pub mod prob;
+
+pub use prob::{
+    Bernoulli, BetaDistribution, ContinuousDistribution, DiscreteDistribution, Distribution,
+    PoissonDistribution, ProbError, Probability,
+};
 
 use std::fmt;
 
