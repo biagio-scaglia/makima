@@ -1,0 +1,268 @@
+# Makima — Architectural Specification
+
+Questo documento costituisce il contratto architetturale formale di **Makima**. Definisce le invarianti di progettazione, i confini tra i sottosistemi, il ciclo di vita dei dati e dei modelli, i principi di interpretabilità e i non-obiettivi espliciti del sistema.
+
+---
+
+## 1. Vision
+
+Makima è un sistema di previsione probabilistica e quantificazione dell'incertezza, ispirato concettualmente alla *Laplace Mail* di *Shin Megami Tensei: Devil Survivor*.
+
+Il suo scopo è trasformare evidenze empiriche osservabili nel tempo in **distribuzioni di probabilità trasparenti e interpretabili** su eventi futuri. Makima non genera previsioni opache; ogni inferenza prodotta è accompagnata da:
+- Le evidenze storiche esatte che l'hanno determinata.
+- La quantificazione rigorosa dell'incertezza epistemica e aleatoria.
+- La spiegazione della catena di calcolo probabilistico adottata.
+- La tracciabilità per la calibrazione a posteriori (*Proper Scoring Rules*).
+
+---
+
+## 2. Architectural Principles
+
+1. **Interpretabilità come Invariante di Primo Ordine**: nessun algoritmo entra nel motore se opera come una black box non ispezionabile o se le sue decisioni non possono essere mappate a precise evidenze e parametri formali.
+2. **Separazione Rigorosa tra Ricerca e Runtime**:
+   - **Rust (`makima-core`)**: nucleo deterministico, ad alte prestazioni, tipizzato a livello di dominio, privo di dipendenze pesanti inutili, runtime di produzione.
+   - **Python (`makima_lab`)**: laboratorio agile per esplorazione euristica, validazione matematica, benchmarking e prototipazione NLP prima dell'ingegnerizzazione.
+3. **Nessun Framework Frankenstein**: rifiuto categorico dell'introduzione acritica di dipendenze monolitiche (niente wrapper di neural network generiche, web server o database non motivati dal dominio).
+4. **Tracciabilità e Riproducibilità**: ogni simulazione Monte Carlo, stima bayesiana o calcolo entropico deve essere deterministicamente riproducibile a parità di seme (*seed*) e set di osservazioni.
+5. **Calibrazione Continua**: Makima misura costantemente la bontà probabilistica dei propri output nel momento in cui l'esito reale dell'evento si manifesta nel tempo (Brier score, Logarithmic score, reliability curves).
+
+---
+
+## 3. Workspace Structure
+
+Il repository è strutturato come un sistema ibrido multi-crate e multi-language:
+
+```text
+makima/
+├── Cargo.toml                  # Configurazione Cargo workspace root
+├── rust-toolchain.toml         # Puntamento a toolchain Rust stabile + linters
+├── pyproject.toml              # Definizione packaging, standard di test e linting Python
+│
+├── crates/
+│   ├── makima-core/            # Dominio fondazionale, tipi immutabili, motore probabilistico
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       └── lib.rs
+│   └── makima-cli/             # Interfaccia da riga di comando per diagnostica e interazione
+│       ├── Cargo.toml
+│       └── src/
+│           └── main.rs
+│
+├── python/
+│   └── makima_lab/             # Modulo Python per la sperimentazione scientifica
+│       ├── README.md
+│       └── __init__.py
+│
+├── experiments/                # Report, script di simulazione e benchmark riproducibili
+│   └── README.md
+│
+├── docs/                       # Specifiche architetturali, matematiche e contratti di dominio
+│   ├── architecture.md
+│   └── mathematics.md
+│
+└── tests/                      # Suite di test di integrazione, end-to-end e cross-language
+    ├── README.md
+    └── test_makima_lab.py
+```
+
+---
+
+## 4. Domain Model
+
+Il modello di dominio è ospitato in `crates/makima-core` ed è progettato per preservare la coerenza tipologica e l'immutabilità dei dati storici.
+
+```mermaid
+classDiagram
+    class ObservationId {
+        +u64 0
+    }
+    class Observation {
+        +ObservationId id
+        +String target
+        +i64 timestamp_sec
+        +f64 value
+        +new(id, target, timestamp, value)
+    }
+    class EngineState {
+        <<enumeration>>
+        Ready
+        Calibrating
+    }
+    class EngineStatus {
+        +str version
+        +EngineState state
+        +usize total_observations
+    }
+    class MakimaEngine {
+        -EngineState state
+        -Vec~Observation~ observations
+        +new()
+        +status() EngineStatus
+        +record_observation(Observation)
+        +observations() &[Observation]
+    }
+
+    Observation --> ObservationId
+    MakimaEngine --> EngineState
+    MakimaEngine --> Observation
+    MakimaEngine ..> EngineStatus
+```
+
+- **`ObservationId`**: Newtype pattern che garantisce identificativi univoci, non falsificabili e indicizzabili per ogni singola evidenza.
+- **`Observation`**: Rappresentazione immutabile di un dato empirico osservato nel tempo (target, timestamp Unix, grandezza o flag scalare).
+- **`EngineState`**: Macchina a stati esplicita che traccia le condizioni operative del motore (`Ready`, `Calibrating`).
+- **`MakimaEngine`**: Radice di aggregazione (*Aggregate Root*) che governa il registro delle evidenze e orchestra le future pipeline di previsione.
+
+---
+
+## 5. Data Flow
+
+Il flusso dei dati dall'acquisizione dell'evidenza alla restituzione della previsione strutturata:
+
+```text
+[ Sorgente Esterna / User Input ]
+                │
+                ▼
+      ( Ingestion Layer ) ──► Validazione Temporale & Semantica
+                │
+                ▼
+       [ Observation Log ] ──► Immutabile & Tipizzato in Rust Core
+                │
+                ▼
+    ┌───────────────────────┐
+    │  Forecasting Pipeline │
+    │  - Selezione Evidenze │
+    │  - Modello Statistico │
+    │  - Simulazione Scenari│
+    └───────────────────────┘
+                │
+                ▼
+     [ Forecast Distribution ] ──► P(E), Intervalli di Confidenza, Entropia
+                │
+                ▼
+ [ Output Interpretabile & Tracciabile ] (CLI / API / Evaluation)
+```
+
+---
+
+## 6. Rust / Python Boundary
+
+Il confine tra Rust e Python rispetta una gerarchia di dipendenza unidirezionale:
+
+```text
+               ┌───────────────────────────────┐
+               │    Python Research Lab        │
+               │  - Prototipazione modelli     │
+               │  - Validazione matematica     │
+               │  - Esperimenti NLP / Intent   │
+               └───────────────┬───────────────┘
+                               │
+                      ipotesi confermata?
+                               │
+                               ▼
+               ┌───────────────────────────────┐
+               │      Rust Core Engine         │
+               │  - Dominio & Invarianti       │
+               │  - Calcolo probabilistico     │
+               │  - Simulazioni Monte Carlo    │
+               │  - Runtime di produzione      │
+               └───────────────┬───────────────┘
+                               │
+                               ▼
+               ┌───────────────────────────────┐
+               │     Export Bridge (PyO3)      │
+               │  (Futura esposizione verso    │
+               │   Python per benchmark/lab)   │
+               └───────────────────────────────┘
+```
+
+1. **Nessun Codice Core in Python**: la logica operativa finale di Makima risiede al 100% in Rust.
+2. **Nessun Crate Wrapper Vuoto**: Rust non fa da semplice bind verso script Python.
+3. **Bridge Futuro (PyO3/maturin)**: quando un algoritmo in Rust sarà maturo, potrà essere esposto verso Python per analisi retrospettive o visualizzazioni nel lab, mai il contrario per il runtime critico.
+
+---
+
+## 7. Observation Lifecycle
+
+Ogni osservazione attraversa le seguenti fasi:
+
+1. **Cattura**: generazione dell'evidenza con target semantico, valore scalare e timestamp cronologico.
+2. **Assegnazione ID**: attribuzione di un `ObservationId` deterministico/monotonico.
+3. **Persistenza in Memoria/Stoccaggio**: inserimento nello storico immutabile del motore (`record_observation`).
+4. **Indicizzazione**: catalogazione per target e finestra temporale di pertinenza.
+5. **Consumo nei Modelli**: utilizzo come dato empirico per l'aggiornamento dei prior o delle frequenze storiche.
+
+---
+
+## 8. Forecasting Lifecycle
+
+Quando Makima riceve una richiesta di previsione:
+
+1. **Strutturazione del Target**: definizione dell'evento $E$ e dell'orizzonte temporale $T$.
+2. **Recupero Evidenze**: estrazione del sottoinsieme di osservazioni rilevanti per il target.
+3. **Esecuzione Modello**: applicazione della distribuzione statistica selezionata (es. modelli di conteggio Poisson, catene di Markov, inferenza bayesiana).
+4. **Quantificazione dell'Incertezza**: calcolo di varianza, entropia di Shannon della distribuzione ed estremi dell'intervallo di credibilità al 95%.
+5. **Emissione della Risposta**: restituzione dell'oggetto previsione contenente la distribuzione, il punteggio di confidenza e la lista puntuale degli `ObservationId` utilizzati come prova (*Evidence*).
+
+---
+
+## 9. State Management
+
+- **Determinismo**: lo stato interno è una funzione esplicita dello storico delle osservazioni accumulate.
+- **Transizioni di Stato**: le transizioni dell'istanza (es. da `Ready` a `Calibrating`) avvengono solo tramite metodi controllati di `MakimaEngine`.
+- **Thread Safety**: il nucleo è progettato per supportare la futura concorrenza (`Send + Sync`) senza lock globali degradanti.
+
+---
+
+## 10. Interpretability Model
+
+Makima non produce mai un singolo valore numerico privo di contesto. L'interpretabilità si articola su tre livelli:
+
+1. **Tracciabilità delle Evidenze**: ogni stima dichiara esattamente quali osservazioni storiche hanno contribuito al calcolo.
+2. **Trasparenza dei Parametri**: i parametri dei modelli (es. prior $\alpha, \beta$, tassi $\lambda$, matrici di transizione) sono sempre leggibili e documentabili.
+3. **Scomposizione dell'Incertezza**: distinzione esplicita tra incertezza dovuta alla variabilità intrinseca del fenomeno (aleatoria) e incertezza dovuta alla scarsità di dati storici (epistemica).
+
+---
+
+## 11. Testing Strategy
+
+La validità del sistema è garantita da più livelli di test:
+- **Rust Unit Tests**: correttezza dei singoli tipi, invarianti di dominio e funzioni matematiche elementari.
+- **Rust Integration Tests**: pipeline end-to-end all'interno dei crate.
+- **Mathematical Property-Based Tests**: verifica di proprietà assiomatiche (es. $\sum P(X) = 1$, divergenza KL $\ge 0$, simmetria dove prevista).
+- **Python Lab Tests**: verifica della riproducibilità numerica degli esperimenti statistici e coerenza del setup.
+
+---
+
+## 12. Reproducibility
+
+- **Controllo dei Semi (*Seed*)**: qualsiasi componente stocastico (es. Monte Carlo) deve accettare un generatore di numeri pseudo-casuali inizializzato con seed esplicito.
+- **Versionamento degli Algoritmi**: qualsiasi evoluzione di un modello previsionale viene tracciata semanticamente per consentire il confronto retrospettivo.
+
+---
+
+## 13. Error Handling
+
+- **Rifiuto di `unwrap()` e `expect()` non motivati**: nel codice di produzione `makima-core` gli errori devono essere modellati con `Result<T, E>` e tipi di errore espliciti.
+- **Fallimenti Trasparenti**: se le evidenze per un target sono insufficienti per formulare una distribuzione valida, il motore restituisce uno stato di incertezza massima anziché una stima fuorviante.
+
+---
+
+## 14. Future Extension Points
+
+- **`makima-math`**: modulo specializzato per distribuzioni probabilistiche, entropia, divergenza KL e matrici di transizione markoviane.
+- **`makima-nlp`**: modulo di parsing semantico per trasformare frasi in linguaggio naturale in query strutturate.
+- **`makima-storage`**: layer di persistenza compatto e tracciabile per le serie storiche di osservazioni.
+- **`makima-wasm`**: compilazione del core in WebAssembly per esecuzione locale e edge priva di dipendenze server.
+
+---
+
+## 15. Explicit Non-Goals (Cosa Makima NON è)
+
+Per preservare l'integrità concettuale e tecnica del progetto, Makima **NON** è e non diventerà:
+
+1. ❌ **Un Chatbot o un wrapper LLM**: Makima non si basa su modelli linguistici black-box per generare stime probabilistiche.
+2. ❌ **Un Framework di Machine Learning generico**: non implementa reti neurali arbitrarie o astrazioni superflue per rimpiazzare librerie esistenti.
+3. ❌ **Un Oracolo Opaco (*Black Box*)**: non produce mai previsioni oracolari prive di catena di inferenza verificabile.
+4. ❌ **Un Decision Maker Autonomo**: Makima quantifica probabilità e incertezza su dati empirici; non prende decisioni d'azione al posto dell'utente.
+5. ❌ **Un'interfaccia cosmetica senza fondamento formale**: nessuna formula, grafico o metrica statistica viene introdotta senza un'implementazione matematica rigorosa, testata e validata.
