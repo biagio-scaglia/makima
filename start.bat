@@ -49,11 +49,13 @@ echo ===================================================
 echo               CONSOLE INTERATTIVA MAKIMA           
 echo ===================================================
 echo Comandi disponibili:
-echo   - status    : Mostra lo stato del core engine Rust
-echo   - eyes      : Esegue l'animazione ASCII degli occhi
-echo   - lab       : Avvia la console interattiva Python Lab
-echo   - help      : Mostra la guida comandi
-echo   - exit      : Chiude la sessione
+echo   - predict ^<target^>      : Calcola previsione probabilistica
+echo   - observe ^<target^> ^<v^> : Registra nuova evidenza (1/0)
+echo   - status               : Mostra lo stato del core engine Rust
+echo   - eyes                 : Esegue l'animazione degli occhi
+echo   - lab                  : Avvia la console Python Lab
+echo   - help                 : Mostra la guida comandi
+echo   - exit                 : Chiude la sessione
 echo ===================================================
 echo.
 

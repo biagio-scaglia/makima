@@ -5,8 +5,10 @@
 //! Questo crate ospita il dominio fondamentale per la raccolta di evidenze empiriche,
 //! la modellazione statistica interpretabile, la quantificazione dell'incertezza
 //! e l'esecuzione di simulazioni previsionali.
+pub mod forecast;
 pub mod prob;
 
+pub use forecast::{Forecast, ForecastError};
 pub use prob::{
     Bernoulli, BetaDistribution, ContinuousDistribution, DiscreteDistribution, Distribution,
     PoissonDistribution, ProbError, Probability,
@@ -117,10 +119,35 @@ impl MakimaEngine {
         self.observations.push(observation);
     }
 
+    /// Registra un'osservazione binaria (successo/fallimento) con timestamp e ID autoincrementale.
+    pub fn record_binary(
+        &mut self,
+        target: impl Into<String>,
+        success: bool,
+        timestamp_sec: i64,
+    ) -> ObservationId {
+        let id = ObservationId((self.observations.len() + 1) as u64);
+        let obs = Observation::new(id, target, timestamp_sec, if success { 1.0 } else { 0.0 });
+        self.record_observation(obs);
+        id
+    }
+
     /// Restituisce la lista di osservazioni storiche attualmente caricate.
     #[must_use]
     pub fn observations(&self) -> &[Observation] {
         &self.observations
+    }
+
+    /// Genera una stima probabilistica per il target specificato utilizzando un prior uniforme.
+    #[must_use]
+    pub fn predict_target(&self, target: &str) -> Forecast {
+        self.predict_target_with_prior(target, BetaDistribution::uniform())
+    }
+
+    /// Genera una stima probabilistica per il target specificato a partire da un prior esplicito.
+    #[must_use]
+    pub fn predict_target_with_prior(&self, target: &str, prior: BetaDistribution) -> Forecast {
+        Forecast::from_observations(target, &self.observations, prior)
     }
 }
 
@@ -150,6 +177,20 @@ mod tests {
         assert_eq!(status.total_observations, 1);
         assert_eq!(engine.observations().len(), 1);
         assert_eq!(engine.observations()[0], obs);
+    }
+
+    #[test]
+    fn test_record_binary_and_predict() {
+        let mut engine = MakimaEngine::new();
+        engine.record_binary("framework_release", true, 1_700_000_000);
+        engine.record_binary("framework_release", true, 1_700_086_400);
+        engine.record_binary("framework_release", false, 1_700_172_800);
+
+        let forecast = engine.predict_target("framework_release");
+
+        assert_eq!(forecast.evidence_count, 3);
+        assert_eq!(forecast.evidence_ids.len(), 3);
+        assert!((forecast.probability.value() - 0.6).abs() < 1e-9);
     }
 
     #[test]

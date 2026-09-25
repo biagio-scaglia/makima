@@ -2,7 +2,7 @@
 
 mod eyes;
 
-use makima_core::MakimaEngine;
+use makima_core::{Forecast, MakimaEngine, Observation, ObservationId};
 use std::env;
 use std::process::ExitCode;
 
@@ -11,18 +11,60 @@ fn print_help() {
     println!("UTILIZZO:");
     println!("    makima <COMANDO> [OPZIONI]\n");
     println!("COMANDI:");
-    println!("    status        Mostra lo stato diagnostico del motore e del sistema");
-    println!("    eyes          Esegue l'animazione ASCII dello sguardo di Makima");
-    println!("    lab           Avvia il laboratorio scientifico interattivo Python");
-    println!("    help          Mostra questa guida di supporto\n");
+    println!("    status                Mostra lo stato diagnostico del motore e del sistema");
+    println!("    predict <target>      Genera una previsione probabilistica interpretabile");
+    println!("    observe <target> <v>  Registra un'osservazione (1/0 o true/false)");
+    println!("    eyes                  Esegue l'animazione ASCII dello sguardo di Makima");
+    println!("    lab                   Avvia il laboratorio scientifico interattivo Python");
+    println!("    help                  Mostra questa guida di supporto\n");
     println!("OPZIONI:");
-    println!("    --anim        Abilita l'animazione di apertura degli occhi prima dello status");
-    println!("    -h, --help    Mostra la guida");
-    println!("    -V, --version Mostra la versione di Makima");
+    println!("    --anim                Abilita l'animazione degli occhi");
+    println!("    -h, --help            Mostra la guida");
+    println!("    -V, --version         Mostra la versione di Makima");
 }
 
 fn print_version() {
     println!("makima {}", env!("CARGO_PKG_VERSION"));
+}
+
+/// Inizializza un motore di default con alcune evidenze storiche di riferimento.
+fn create_engine_with_sample_data() -> MakimaEngine {
+    let mut engine = MakimaEngine::new();
+
+    // Dati storici di esempio su rilasci software passati
+    let samples = [
+        ("framework_release", 1.0, 1_700_000_000),
+        ("framework_release", 1.0, 1_700_086_400),
+        ("framework_release", 0.0, 1_700_172_800),
+        ("framework_release", 1.0, 1_700_259_200),
+        ("framework_release", 1.0, 1_700_345_600),
+        ("framework_release", 1.0, 1_700_432_000),
+        ("framework_release", 0.0, 1_700_518_400),
+        ("framework_release", 1.0, 1_700_604_800),
+        ("daily_build", 1.0, 1_700_000_000),
+        ("daily_build", 1.0, 1_700_086_400),
+        ("daily_build", 1.0, 1_700_172_800),
+    ];
+
+    for (idx, (target, val, ts)) in samples.iter().enumerate() {
+        engine.record_observation(Observation::new(
+            ObservationId((idx + 1) as u64),
+            *target,
+            *ts,
+            *val,
+        ));
+    }
+
+    engine
+}
+
+fn render_ascii_density_bar(prob: f64, width: usize) -> String {
+    let pos = (prob * ((width - 1) as f64)).round() as usize;
+    let mut bar = vec!['-'; width];
+    if pos < width {
+        bar[pos] = '*';
+    }
+    format!("[{}]", bar.into_iter().collect::<String>())
 }
 
 fn handle_status(animated: bool) {
@@ -34,7 +76,7 @@ fn handle_status(animated: bool) {
         println!();
     }
 
-    let engine = MakimaEngine::new();
+    let engine = create_engine_with_sample_data();
     let status = engine.status();
 
     println!("========================================");
@@ -45,6 +87,87 @@ fn handle_status(animated: bool) {
     println!("Osservazioni Totali: {}", status.total_observations);
     println!("Architettura:        Ibrida (Rust Core + Python Lab)");
     println!("========================================");
+}
+
+fn handle_predict(target: &str) {
+    let engine = create_engine_with_sample_data();
+    let forecast: Forecast = engine.predict_target(target);
+
+    println!("\n============================================================");
+    println!("               MAKIMA PROBABILISTIC FORECAST                ");
+    println!("============================================================");
+    println!("Target:               {}", forecast.target);
+    println!(
+        "Probabilità Stimata:  {:.2}%  (E[P] = {:.4})",
+        forecast.probability.value() * 100.0,
+        forecast.probability.value()
+    );
+    println!(
+        "Densità di Stima:     {} (0.0 -> 1.0)",
+        render_ascii_density_bar(forecast.probability.value(), 36)
+    );
+    println!("Incertezza (Var):     {:.6}", forecast.uncertainty_variance);
+    println!("Entropia Informativa: {:.4} bit", forecast.entropy_bits);
+    println!(
+        "Prior Bayesiano:      Beta(alpha={:.2}, beta={:.2})",
+        forecast.prior.alpha(),
+        forecast.prior.beta()
+    );
+    println!(
+        "Posterior Aggiornato: Beta(alpha={:.2}, beta={:.2})",
+        forecast.posterior.alpha(),
+        forecast.posterior.beta()
+    );
+    println!(
+        "Evidenze Rilevate:    {} osservazioni storiche",
+        forecast.evidence_count
+    );
+
+    if forecast.evidence_ids.is_empty() {
+        println!("Tracciamento Prove:   [Nessuna evidenza - Prior non-informativo]");
+    } else {
+        let ids_str: Vec<String> = forecast
+            .evidence_ids
+            .iter()
+            .map(|id| id.0.to_string())
+            .collect();
+        println!("Tracciamento Prove:   [ID: {}]", ids_str.join(", "));
+    }
+    println!("============================================================\n");
+}
+
+fn handle_observe(target: &str, value_str: &str) {
+    let is_success = match value_str.to_lowercase().as_str() {
+        "1" | "true" | "t" | "success" | "ok" | "s" => true,
+        "0" | "false" | "f" | "failure" | "fail" => false,
+        _ => {
+            eprintln!("Errore: valore non valido '{value_str}'. Usa 1/0 o true/false.");
+            return;
+        }
+    };
+
+    let mut engine = create_engine_with_sample_data();
+    let id = engine.record_binary(target, is_success, 1_700_700_000);
+    let forecast = engine.predict_target(target);
+
+    println!("\n[OK] Nuova osservazione registrata con successo!");
+    println!("- ID Assegnato:   {}", id.0);
+    println!("- Target:         {target}");
+    println!(
+        "- Esito:          {}",
+        if is_success {
+            "Successo (1)"
+        } else {
+            "Insuccesso (0)"
+        }
+    );
+    println!(
+        "- Nuovo Posterior: Beta(alpha={:.2}, beta={:.2}) -> E[P] = {:.2}%",
+        forecast.posterior.alpha(),
+        forecast.posterior.beta(),
+        forecast.probability.value() * 100.0
+    );
+    println!();
 }
 
 fn main() -> ExitCode {
@@ -60,6 +183,26 @@ fn main() -> ExitCode {
             let animated = args.iter().any(|arg| arg == "--anim");
             handle_status(animated);
             ExitCode::SUCCESS
+        }
+        "predict" | "forecast" => {
+            if args.len() < 3 {
+                eprintln!("Uso: makima predict <target>");
+                eprintln!("Esempio: makima predict framework_release");
+                ExitCode::FAILURE
+            } else {
+                handle_predict(&args[2]);
+                ExitCode::SUCCESS
+            }
+        }
+        "observe" | "record" => {
+            if args.len() < 4 {
+                eprintln!("Uso: makima observe <target> <1|0|true|false>");
+                eprintln!("Esempio: makima observe framework_release 1");
+                ExitCode::FAILURE
+            } else {
+                handle_observe(&args[2], &args[3]);
+                ExitCode::SUCCESS
+            }
         }
         "eyes" | "anim" => {
             eyes::play_eye_animation(2);
