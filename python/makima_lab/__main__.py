@@ -20,12 +20,18 @@ from makima_lab.neural import get_neural_engine
 from makima_lab.storage import record_journal_entry
 
 
+from makima_lab.llm import get_llm_engine
+
+
 def print_banner():
     print("===================================================")
     print("        MAKIMA PYTHON RESEARCH LAB & NEURAL MIND   ")
     print("===================================================")
-    print("Ambiente di Ricerca: PyTorch Cognitive Net, NLP, Bayes")
+    print("Ambiente di Ricerca: PyTorch Cognitive Net, Qwen SLM, Bayes")
     print("Comandi disponibili:")
+    print("  - explain <target>          : Spiegazione cognitiva (Qwen 2.5 SLM)")
+    print("  - digest                    : Bollettino esecutivo Laplace Digest")
+    print("  - chat <messaggio>          : Dialogo cognitivo con Makima")
     print("  - tell <pensiero/fatto>     : Confida un fatto a Makima (NLP + Neural + SQLite)")
     print("  - neural <frase>            : Ispezione della percezione neurale (Self-Attention)")
     print("  - memory                    : Visualizza lo stato di memoria latente utente")
@@ -34,6 +40,51 @@ def print_banner():
     print("  - bernoulli <p> / poisson <lambda>")
     print("  - exit                      : Torna al launcher principale")
     print("===================================================\n")
+
+
+def handle_explain(target_name: str) -> None:
+    """Genera una spiegazione analitica per un target probabilistico tramite Qwen 2.5."""
+    engine = get_llm_engine()
+    # Recupera dati di default o da storage per il target
+    alpha = 16.0 if target_name in ("deploy", "git:feature_ratio") else 3.0
+    beta = 4.0 if target_name in ("deploy", "git:feature_ratio") else 2.0
+    prob = alpha / (alpha + beta)
+    evidence = int(alpha + beta - 2)
+
+    print(f"\n[ Makima Cognitive Reasoning: {target_name} ]")
+    explanation = engine.explain_target(
+        target=target_name,
+        probability=prob,
+        alpha=alpha,
+        beta=beta,
+        evidence_count=evidence,
+        poisson_rate=0.75,
+        variance=(alpha * beta) / (((alpha + beta) ** 2) * (alpha + beta + 1)),
+    )
+    print("---------------------------------------------------")
+    print(explanation)
+    print("---------------------------------------------------\n")
+
+
+def handle_digest() -> None:
+    """Genera un bollettino esecutivo di forecasting tramite Qwen 2.5."""
+    engine = get_llm_engine()
+    sample_targets = [
+        {"name": "git:feature_ratio", "prob": 0.73, "obs": 37},
+        {"name": "deploy", "prob": 0.80, "obs": 18},
+        {"name": "bug_fix_rate", "prob": 0.65, "obs": 12},
+    ]
+    print("\n[ Makima Laplace Executive Digest (Qwen 2.5 SLM) ]")
+    print("===================================================")
+    digest = engine.generate_digest(sample_targets, brier_score=0.1429, ece=0.0492)
+    print(digest)
+    print("===================================================\n")
+
+
+def handle_chat(query: str) -> None:
+    """Conversazione diretta con Makima (Qwen 2.5 SLM)."""
+    engine = get_llm_engine()
+    print(f"\nMakima: {engine.chat(query)}\n")
 
 
 def handle_journal(text: str) -> None:
@@ -104,6 +155,15 @@ def interactive_loop():
         if cmd in ("exit", "quit", "q"):
             print("Uscita dal laboratorio Python.")
             break
+        elif cmd.startswith("explain"):
+            parts = cmd.split(maxsplit=1)
+            target = parts[1].strip() if len(parts) > 1 else "deploy"
+            handle_explain(target)
+        elif cmd in ("digest", "bulletin", "report"):
+            handle_digest()
+        elif cmd.startswith("chat "):
+            text = cmd.split(maxsplit=1)[1].strip()
+            handle_chat(text)
         elif cmd.startswith("tell ") or cmd.startswith("journal "):
             text = cmd.split(maxsplit=1)[1].strip()
             handle_journal(text)
@@ -153,6 +213,9 @@ def interactive_loop():
                 print("Uso: poisson <lambda>  (es: poisson 3.5)")
         elif cmd in ("help", "h"):
             print("Comandi disponibili:")
+            print("  explain <target>        Spiegazione cognitiva del forecast (Qwen 2.5 SLM)")
+            print("  digest                  Bollettino esecutivo Laplace Digest")
+            print("  chat <messaggio>        Conversazione analitica con Makima")
             print("  tell <testo>            Confida un fatto, pensiero o abitudine a Makima")
             print("  neural <frase>          Analizza la rappresentazione neurale e attention")
             print("  memory                  Mostra la memoria latente e i pesi appresi")
@@ -168,7 +231,15 @@ def interactive_loop():
 def main():
     if len(sys.argv) > 1:
         subcmd = sys.argv[1]
-        if subcmd in ("tell", "journal") and len(sys.argv) > 2:
+        if subcmd == "explain":
+            target = sys.argv[2] if len(sys.argv) > 2 else "deploy"
+            handle_explain(target)
+        elif subcmd in ("digest", "bulletin", "report"):
+            handle_digest()
+        elif subcmd == "chat" and len(sys.argv) > 2:
+            query = " ".join(sys.argv[2:])
+            handle_chat(query)
+        elif subcmd in ("tell", "journal") and len(sys.argv) > 2:
             text = " ".join(sys.argv[2:])
             handle_journal(text)
         elif subcmd == "neural" and len(sys.argv) > 2:

@@ -46,6 +46,11 @@ echo    - observe ^<target^> ^<v^> : Registra nuova evidenza storica (1=succ, 0=
 echo    - outcome ^<target^> ^<v^> : Registra esito reale e calcola calibrazione
 echo    - evaluate              : Scorecard di accuratezza, Brier Score ed ECE
 echo.
+echo  * RAGIONAMENTO COGNITIVO ED SLM (QWEN 2.5):
+echo    - explain [target]      : Spiegazione in linguaggio naturale del forecast (Qwen 2.5)
+echo    - digest                : Bollettino esecutivo Laplace Digest generato da SLM
+echo    - chat ^<messaggio^>      : Conversazione analitica diretta con Makima
+echo.
 echo  * VALIDAZIONE SCIENTIFICA E BENCHMARK:
 echo    - benchmark             : Esegue il benchmark comparativo completo su 5,000 campioni
 echo    - ablation              : Esegue l'Ablation Study su tutti i sottosistemi
@@ -83,6 +88,30 @@ if /i "!USER_INPUT!"=="benchmark" (
 )
 if /i "!USER_INPUT!"=="ablation" (
     python -m makima_lab ablation
+    echo.
+    goto INTERACTIVE_LOOP
+)
+if /i "!USER_INPUT!"=="digest" (
+    python -m makima_lab digest
+    echo.
+    goto INTERACTIVE_LOOP
+)
+
+set "PREFIX8=!USER_INPUT:~0,8!"
+if /i "!PREFIX8!"=="explain " (
+    python -m makima_lab explain "!USER_INPUT:~8!"
+    echo.
+    goto INTERACTIVE_LOOP
+)
+if /i "!USER_INPUT!"=="explain" (
+    python -m makima_lab explain deploy
+    echo.
+    goto INTERACTIVE_LOOP
+)
+
+set "PREFIX5=!USER_INPUT:~0,5!"
+if /i "!PREFIX5!"=="chat " (
+    python -m makima_lab chat "!USER_INPUT:~5!"
     echo.
     goto INTERACTIVE_LOOP
 )
