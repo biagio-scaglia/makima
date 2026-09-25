@@ -15,15 +15,16 @@ if sys.platform == "win32":
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from makima_lab.distributions import Bernoulli, BetaDistribution, PoissonDistribution
+from makima_lab.nlp import SemanticQueryParser
 
 
 def print_banner():
     print("===================================================")
     print("             MAKIMA PYTHON RESEARCH LAB            ")
     print("===================================================")
-    print("Ambiente di Ricerca Statistica e Validazione")
-    print("Distribuzioni caricate: Bernoulli, BetaDistribution, PoissonDistribution")
-    print("Digita 'demo', 'update', 'bernoulli', 'poisson', o 'exit'.")
+    print("Ambiente di Ricerca Statistica e NLP Prototyping")
+    print("Moduli caricati: Distribuzioni, Valutazione Calibrazione, Semantic NLP")
+    print("Digita 'query <frase>', 'demo', 'update', 'bernoulli', 'poisson', o 'exit'.")
     print("===================================================\n")
 
 
@@ -52,6 +53,7 @@ def run_demo():
 def interactive_loop():
     print_banner()
     run_demo()
+    nlp_parser = SemanticQueryParser()
 
     while True:
         try:
@@ -67,6 +69,12 @@ def interactive_loop():
             break
         elif cmd == "demo":
             run_demo()
+        elif cmd.startswith("query ") or cmd.startswith("nlp "):
+            text = cmd.split(maxsplit=1)[1].strip()
+            parsed = nlp_parser.parse(text)
+            print("\n[ Makima NLP Semantic Parser ]")
+            print(parsed.summary())
+            print()
         elif cmd.startswith("update"):
             parts = cmd.split()
             if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
@@ -102,6 +110,7 @@ def interactive_loop():
                 print("Uso: poisson <lambda>  (es: poisson 3.5)")
         elif cmd in ("help", "h"):
             print("Comandi disponibili:")
+            print("  query <frase>           Analizza una frase naturale e genera una ForecastQuery")
             print("  demo                    Esegue la simulazione di aggiornamento bayesiano")
             print("  update <succ> <fail>    Calcola distribuzione Beta da successi/fallimenti")
             print("  bernoulli <p>           Analizza probabilità ed entropia di Bernoulli")

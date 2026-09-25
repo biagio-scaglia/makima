@@ -33,11 +33,11 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo [1/2] Verifica ambiente Python (makima_lab)...
-python tests\test_makima_lab.py
+python -m unittest discover -s tests -p "test_*.py"
 if %ERRORLEVEL% neq 0 (
     echo [ATTENZIONE] Test Python non riusciti o ambiente non configurato.
 ) else (
-    echo [OK] Modulo Python makima_lab verificato.
+    echo [OK] Moduli Python makima_lab e NLP verificati.
 )
 echo.
 
@@ -49,6 +49,7 @@ echo ===================================================
 echo               CONSOLE INTERATTIVA MAKIMA           
 echo ===================================================
 echo Comandi disponibili:
+echo   - query ^<frase^>          : Analizza semantica NL ed estrae ForecastQuery
 echo   - predict ^<target^>      : Calcola previsione probabilistica
 echo   - observe ^<target^> ^<v^> : Registra nuova evidenza storica (1/0)
 echo   - outcome ^<target^> ^<v^> : Registra esito reale (Ground Truth)
@@ -57,7 +58,7 @@ echo   - poisson ^<lambda^>      : Calcola distribuzione temporale Poisson
 echo   - bernoulli ^<p^>         : Calcola momenti ed Entropia di Shannon
 echo   - status                : Mostra lo stato del core engine Rust
 echo   - eyes                  : Esegue l'animazione degli occhi
-echo   - lab                   : Avvia la console Python Lab
+echo   - lab                   : Avvia la console interattiva Python Lab
 echo   - help                  : Mostra la guida comandi
 echo   - exit                  : Chiude la sessione
 echo ===================================================
@@ -72,6 +73,7 @@ if /i "!USER_INPUT!"=="quit" goto END
 if /i "!USER_INPUT!"=="q" goto END
 if "!USER_INPUT!"=="" goto INTERACTIVE_LOOP
 
+:: Routing per comandi Python diretti
 if /i "!USER_INPUT!"=="lab" (
     python -m makima_lab
     echo.
@@ -84,6 +86,20 @@ if /i "!USER_INPUT!"=="python" (
 )
 if /i "!USER_INPUT!"=="py" (
     python -m makima_lab
+    echo.
+    goto INTERACTIVE_LOOP
+)
+
+:: Routing per query semantica in linguaggio naturale
+set "PREFIX=!USER_INPUT:~0,6!"
+if /i "!PREFIX!"=="query " (
+    python -c "from makima_lab.nlp import SemanticQueryParser; p = SemanticQueryParser(); print('\n[ Makima NLP Semantic Parser ]\n' + p.parse('!USER_INPUT:~6!').summary())"
+    echo.
+    goto INTERACTIVE_LOOP
+)
+set "PREFIX4=!USER_INPUT:~0,4!"
+if /i "!PREFIX4!"=="nlp " (
+    python -c "from makima_lab.nlp import SemanticQueryParser; p = SemanticQueryParser(); print('\n[ Makima NLP Semantic Parser ]\n' + p.parse('!USER_INPUT:~4!').summary())"
     echo.
     goto INTERACTIVE_LOOP
 )
