@@ -42,7 +42,7 @@ if %ERRORLEVEL% neq 0 (
 echo.
 
 echo [2/2] Avvio del motore Makima...
-cargo run --bin makima -- status --anim
+cargo run --bin makima -- status
 
 echo.
 echo ===================================================

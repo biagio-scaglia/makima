@@ -99,14 +99,10 @@ fn render_ascii_density_bar(prob: f64, width: usize) -> String {
     format!("[{}]", bar.into_iter().collect::<String>())
 }
 
-fn handle_status(animated: bool) {
-    if animated {
-        eyes::play_eye_animation(1);
-    } else {
-        println!();
-        eyes::print_static_eyes();
-        println!();
-    }
+fn handle_status(_animated: bool) {
+    println!();
+    eyes::print_static_eyes();
+    println!();
 
     let engine = load_engine_from_store();
     let status = engine.status();
