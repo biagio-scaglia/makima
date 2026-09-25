@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
-members = []
+members = [
+    "crates/makima-core",
+]
 
 [workspace.package]
 version = "0.1.0"
