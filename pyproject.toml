@@ -34,3 +34,4 @@ target-version = "py312"
 [tool.pytest.ini_options]
 testpaths = ["tests", "python/makima_lab"]
 python_files = ["test_*.py", "*_test.py"]
+pythonpath = ["python"]
