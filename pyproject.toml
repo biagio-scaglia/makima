@@ -35,3 +35,10 @@ target-version = "py312"
 testpaths = ["tests", "python/makima_lab"]
 python_files = ["test_*.py", "*_test.py"]
 pythonpath = ["python"]
+
+[tool.pyright]
+include = ["python", "tests"]
+extraPaths = ["python"]
+executionEnvironments = [
+  { root = "python" }
+]

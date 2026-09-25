@@ -3,6 +3,14 @@
 import sys
 from pathlib import Path
 
+# Assicura la compatibilità con terminali Windows
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Assicura che makima_lab sia importabile
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -15,14 +23,14 @@ def print_banner():
     print("===================================================")
     print("Ambiente di Ricerca Statistica e Validazione")
     print("Distribuzioni caricate: Bernoulli, BetaDistribution, PoissonDistribution")
-    print("Digita 'demo', 'update', 'test', o 'exit' per uscire.")
+    print("Digita 'demo', 'update', 'bernoulli', 'poisson', o 'exit'.")
     print("===================================================\n")
 
 
 def run_demo():
     print("--- Demo: Inferenza Bayesiana con Prior Coniugato Beta ---")
     prior = BetaDistribution(1.0, 1.0)
-    print(f"1. Prior non-informativo (uniforme):")
+    print("1. Prior non-informativo (uniforme):")
     print(f"   {prior}")
     print(f"   {prior.ascii_density()}")
     print()

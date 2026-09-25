@@ -4,6 +4,9 @@ setlocal enabledelayedexpansion
 :: Imposta titolo della finestra della console
 title Makima - Interpretable Probabilistic Forecasting System
 
+:: Configura PYTHONPATH per includere la cartella python/
+set "PYTHONPATH=%~dp0python;%PYTHONPATH%"
+
 echo ===================================================
 echo             MAKIMA INITIALIZATION LAUNCHER         
 echo ===================================================

@@ -68,6 +68,7 @@ fn main() -> ExitCode {
         "lab" => {
             println!("Avvio del laboratorio scientifico Python (makima_lab)...\n");
             let mut cmd = std::process::Command::new("python");
+            cmd.env("PYTHONPATH", "python");
             cmd.args(["-m", "makima_lab"]);
             match cmd.status() {
                 Ok(status) if status.success() => ExitCode::SUCCESS,

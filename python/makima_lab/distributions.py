@@ -63,11 +63,11 @@ class BetaDistribution:
         m = self.mean
         pos = int(round(m * (width - 1)))
         bar = ["-"] * width
-        bar[pos] = "●"
-        return f"[{''.join(bar)}] E[P]={m:.3f} (α={self.alpha}, β={self.beta})"
+        bar[pos] = "*"
+        return f"[{''.join(bar)}] E[P]={m:.3f} (alpha={self.alpha}, beta={self.beta})"
 
     def __repr__(self) -> str:
-        return f"Beta(α={self.alpha:.2f}, β={self.beta:.2f}, mean={self.mean:.4f}, var={self.variance:.4f})"
+        return f"Beta(alpha={self.alpha:.2f}, beta={self.beta:.2f}, mean={self.mean:.4f}, var={self.variance:.4f})"
 
 
 class PoissonDistribution:
@@ -94,4 +94,4 @@ class PoissonDistribution:
         return math.exp(log_pmf)
 
     def __repr__(self) -> str:
-        return f"Poisson(λ={self.lambda_param:.2f}, mean={self.mean:.2f})"
+        return f"Poisson(lambda={self.lambda_param:.2f}, mean={self.mean:.2f})"
