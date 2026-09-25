@@ -9,8 +9,16 @@ Fornisce:
 from __future__ import annotations
 
 import logging
+import os
 import sys
+import warnings
 from typing import Any, Dict, List, Optional
+
+# Soppressione avvisi e progress bar di Hugging Face / Transformers
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+warnings.filterwarnings("ignore", message=".*unauthenticated requests.*")
+warnings.filterwarnings("ignore", module=".*huggingface_hub.*")
 
 logger = logging.getLogger("makima.llm")
 
@@ -35,6 +43,7 @@ class QwenCognitiveEngine:
         self.model = None
         self.device = device or ("cuda" if self._has_cuda() else "cpu")
         self._is_loaded = False
+        self.history: List[Dict[str, str]] = []
 
     @staticmethod
     def _has_cuda() -> bool:
@@ -52,18 +61,49 @@ class QwenCognitiveEngine:
 
         try:
             import torch
-            from transformers import AutoModelForCausalLM, AutoTokenizer
+            from transformers import AutoModelForCausalLM, AutoTokenizer, logging as tf_logging
+            from transformers.utils import logging as tf_utils_logging
+
+            tf_logging.set_verbosity_error()
+            if hasattr(tf_utils_logging, "disable_progress_bar"):
+                tf_utils_logging.disable_progress_bar()
+
+            try:
+                import huggingface_hub.utils
+                if hasattr(huggingface_hub.utils, "disable_progress_bars"):
+                    huggingface_hub.utils.disable_progress_bars()
+            except Exception:
+                pass
 
             logger.info(f"Caricamento SLM locale ({self.model_name}) su {self.device}...")
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                trust_remote_code=True,
-            )
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                dtype=torch.float32 if self.device == "cpu" else torch.float16,
-                trust_remote_code=True,
-            ).to(self.device)
+
+            # 1. Prova prima il caricamento offline da cache locale (zero richieste di rete e nessun avviso)
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_name,
+                    local_files_only=True,
+                    trust_remote_code=True,
+                )
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_name,
+                    local_files_only=True,
+                    dtype=torch.float32 if self.device == "cpu" else torch.float16,
+                    trust_remote_code=True,
+                ).to(self.device)
+            except Exception:
+                # 2. Se non presente in cache, scarica dal repository remoto
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_name,
+                    local_files_only=False,
+                    trust_remote_code=True,
+                )
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    self.model_name,
+                    local_files_only=False,
+                    dtype=torch.float32 if self.device == "cpu" else torch.float16,
+                    trust_remote_code=True,
+                ).to(self.device)
+
             self.model.eval()
             self._is_loaded = True
             logger.info("Modello Qwen 2.5 0.5B Instruct caricato con successo.")

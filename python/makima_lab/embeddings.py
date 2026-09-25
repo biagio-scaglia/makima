@@ -22,8 +22,30 @@ class SemanticEmbedder:
         self.has_transformer = False
 
         try:
+            import os
+            import warnings
+            os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+            os.environ["TOKENIZERS_PARALLELISM"] = "false"
+            warnings.filterwarnings("ignore", message=".*unauthenticated requests.*")
+            warnings.filterwarnings("ignore", module=".*huggingface_hub.*")
+
+            from transformers.utils import logging as tf_utils_logging
+            if hasattr(tf_utils_logging, "disable_progress_bar"):
+                tf_utils_logging.disable_progress_bar()
+
+            try:
+                import huggingface_hub.utils
+                if hasattr(huggingface_hub.utils, "disable_progress_bars"):
+                    huggingface_hub.utils.disable_progress_bars()
+            except Exception:
+                pass
+
             from sentence_transformers import SentenceTransformer
-            self.model = SentenceTransformer(model_name)
+            try:
+                self.model = SentenceTransformer(model_name, local_files_only=True)
+            except Exception:
+                self.model = SentenceTransformer(model_name, local_files_only=False)
+
             self.has_transformer = True
             if hasattr(self.model, "get_embedding_dimension"):
                 self.dim = self.model.get_embedding_dimension() or 384

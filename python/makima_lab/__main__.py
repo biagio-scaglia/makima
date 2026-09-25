@@ -87,6 +87,29 @@ def handle_chat(query: str) -> None:
     print(f"\nMakima: {engine.chat(query)}\n")
 
 
+def handle_chat_interactive() -> None:
+    """Sessione di conversazione cognitiva continua con Makima."""
+    engine = get_llm_engine()
+    print("\n=======================================================")
+    print("      MAKIMA COGNITIVE CHAT (Qwen 2.5 0.5B SLM)        ")
+    print("=======================================================")
+    print("Digita il tuo messaggio (o 'esci' per tornare al menu)")
+    print("=======================================================\n")
+    while True:
+        try:
+            user_msg = input("tu > ").strip()
+            if not user_msg:
+                continue
+            if user_msg.lower() in ("exit", "quit", "esci", "q", ":q"):
+                print("\nChiusura sessione chat Makima.\n")
+                break
+            resp = engine.chat(user_msg)
+            print(f"\nMakima: {resp}\n")
+        except (KeyboardInterrupt, EOFError):
+            print("\n")
+            break
+
+
 def handle_journal(text: str) -> None:
     """Registra una frase dell'utente, la percepisce con la rete neurale, aggiorna la memoria e salva su SQLite."""
     engine = get_neural_engine()
@@ -164,6 +187,8 @@ def interactive_loop():
         elif cmd.startswith("chat "):
             text = cmd.split(maxsplit=1)[1].strip()
             handle_chat(text)
+        elif cmd == "chat":
+            handle_chat_interactive()
         elif cmd.startswith("tell ") or cmd.startswith("journal "):
             text = cmd.split(maxsplit=1)[1].strip()
             handle_journal(text)
@@ -236,9 +261,12 @@ def main():
             handle_explain(target)
         elif subcmd in ("digest", "bulletin", "report"):
             handle_digest()
-        elif subcmd == "chat" and len(sys.argv) > 2:
-            query = " ".join(sys.argv[2:])
-            handle_chat(query)
+        elif subcmd == "chat":
+            if len(sys.argv) > 2:
+                query = " ".join(sys.argv[2:])
+                handle_chat(query)
+            else:
+                handle_chat_interactive()
         elif subcmd in ("tell", "journal") and len(sys.argv) > 2:
             text = " ".join(sys.argv[2:])
             handle_journal(text)

@@ -115,6 +115,11 @@ if /i "!PREFIX5!"=="chat " (
     echo.
     goto INTERACTIVE_LOOP
 )
+if /i "!USER_INPUT!"=="chat" (
+    python -m makima_lab chat
+    echo.
+    goto INTERACTIVE_LOOP
+)
 
 set "PREFIX=!USER_INPUT:~0,6!"
 if /i "!PREFIX!"=="query " (
