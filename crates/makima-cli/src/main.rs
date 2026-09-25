@@ -2,7 +2,10 @@
 
 mod eyes;
 
-use makima_core::{Forecast, MakimaEngine, Observation, ObservationId, Scoring};
+use makima_core::{
+    Bernoulli, DiscreteDistribution, Distribution, Forecast, MakimaEngine, Observation,
+    ObservationId, PoissonDistribution, Scoring,
+};
 use std::env;
 use std::process::ExitCode;
 
@@ -10,12 +13,18 @@ fn print_help() {
     println!("Makima - Interpretable Probabilistic Forecasting System\n");
     println!("UTILIZZO:");
     println!("    makima <COMANDO> [OPZIONI]\n");
-    println!("COMANDI:");
-    println!("    status                Mostra lo stato diagnostico del motore e del sistema");
+    println!("COMANDI PREVISIONALI & DOMINIO:");
     println!("    predict <target>      Genera una previsione probabilistica interpretabile");
     println!("    observe <target> <v>  Registra un'osservazione storica (1/0 o true/false)");
     println!("    outcome <target> <v>  Registra l'esito reale (Ground Truth) e valuta la stima");
     println!("    evaluate              Mostra il report di accuratezza e Brier Skill Score");
+    println!("    status                Mostra lo stato diagnostico del motore e del sistema\n");
+    println!("COMANDI MATEMATICI & PROBABILISTICI:");
+    println!("    poisson <lambda>      Calcola distribuzione di frequenza temporale Poisson");
+    println!(
+        "    bernoulli <p>         Calcola momenti ed Entropia di Shannon per eventi binari\n"
+    );
+    println!("STRUMENTI & AMBIENTI:");
     println!("    eyes                  Esegue l'animazione ASCII dello sguardo di Makima");
     println!("    lab                   Avvia il laboratorio scientifico interattivo Python");
     println!("    help                  Mostra questa guida di supporto\n");
@@ -228,6 +237,70 @@ fn handle_evaluate() {
     }
 }
 
+fn handle_poisson(lambda_str: &str) {
+    match lambda_str.parse::<f64>() {
+        Ok(lambda) => match PoissonDistribution::new(lambda) {
+            Ok(dist) => {
+                println!("\n============================================================");
+                println!("           DISTRIBUZIONE DI POISSON (TEMPORALE)             ");
+                println!("============================================================");
+                println!(
+                    "Parametro Tasso (lambda): {:.3} eventi attesi/intervallo",
+                    dist.lambda()
+                );
+                println!("Media E[X]:               {:.3}", dist.mean());
+                println!("Varianza Var(X):          {:.3}", dist.variance());
+                println!("Deviazione Standard:      {:.3}", dist.std_dev());
+                println!("------------------------------------------------------------");
+                println!("Funzione di Massa PMF P(X = k):");
+                for k in 0..=6 {
+                    let pmf = dist.pmf(k);
+                    let cdf = dist.cdf(k);
+                    println!(
+                        "  k = {:2} | P(X = {:2}) = {:6.2}% | CDF P(X <= {:2}) = {:6.2}%",
+                        k,
+                        k,
+                        pmf.value() * 100.0,
+                        k,
+                        cdf.value() * 100.0
+                    );
+                }
+                println!("============================================================\n");
+            }
+            Err(err) => eprintln!("Errore: {err}"),
+        },
+        Err(_) => eprintln!("Errore: '{lambda_str}' non e' un numero valido."),
+    }
+}
+
+fn handle_bernoulli(p_str: &str) {
+    match p_str.parse::<f64>() {
+        Ok(p) => match Bernoulli::new(p) {
+            Ok(dist) => {
+                println!("\n============================================================");
+                println!("         DISTRIBUZIONE DI BERNOULLI (EVENTO BINARIO)        ");
+                println!("============================================================");
+                println!(
+                    "Probabilità Successo (p): {:.4} ({:.2}%)",
+                    dist.p().value(),
+                    dist.p().value() * 100.0
+                );
+                println!(
+                    "Probabilità Insuccesso (q): {:.4} ({:.2}%)",
+                    dist.q().value(),
+                    dist.q().value() * 100.0
+                );
+                println!("Valore Atteso Media:      {:.4}", dist.mean());
+                println!("Varianza p*(1-p):         {:.4}", dist.variance());
+                println!("Entropia di Shannon H(p): {:.4} bit", dist.entropy_bits());
+                println!("============================================================\n");
+            }
+            Err(err) => eprintln!("Errore: {err}"),
+        },
+        Err(_) => eprintln!("Errore: '{p_str}' non e' un numero valido."),
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
 
@@ -275,6 +348,26 @@ fn main() -> ExitCode {
         "evaluate" | "score" | "eval" => {
             handle_evaluate();
             ExitCode::SUCCESS
+        }
+        "poisson" => {
+            if args.len() < 3 {
+                eprintln!("Uso: makima poisson <lambda>");
+                eprintln!("Esempio: makima poisson 3.0");
+                ExitCode::FAILURE
+            } else {
+                handle_poisson(&args[2]);
+                ExitCode::SUCCESS
+            }
+        }
+        "bernoulli" => {
+            if args.len() < 3 {
+                eprintln!("Uso: makima bernoulli <p>");
+                eprintln!("Esempio: makima bernoulli 0.75");
+                ExitCode::FAILURE
+            } else {
+                handle_bernoulli(&args[2]);
+                ExitCode::SUCCESS
+            }
         }
         "eyes" | "anim" => {
             eyes::play_eye_animation(2);

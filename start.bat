@@ -53,6 +53,8 @@ echo   - predict ^<target^>      : Calcola previsione probabilistica
 echo   - observe ^<target^> ^<v^> : Registra nuova evidenza storica (1/0)
 echo   - outcome ^<target^> ^<v^> : Registra esito reale (Ground Truth)
 echo   - evaluate              : Mostra scorecard e Brier Skill Score
+echo   - poisson ^<lambda^>      : Calcola distribuzione temporale Poisson
+echo   - bernoulli ^<p^>         : Calcola momenti ed Entropia di Shannon
 echo   - status                : Mostra lo stato del core engine Rust
 echo   - eyes                  : Esegue l'animazione degli occhi
 echo   - lab                   : Avvia la console Python Lab
