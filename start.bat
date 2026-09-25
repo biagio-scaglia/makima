@@ -21,7 +21,7 @@ if errorlevel 1 goto PYTHON_ERROR
 echo [1/2] Verifica ambiente scientifico e Neural Mind: makima_lab...
 python -m unittest discover -s tests >nul 2>&1
 if errorlevel 1 goto PYTEST_WARN
-echo [OK] Suite di test superata: 26 unit test verificati con successo.
+echo [OK] Suite di test superata: 40 unit test verificati con successo.
 goto PYTEST_DONE
 
 :PYTEST_WARN
@@ -46,7 +46,7 @@ echo    - observe ^<target^> ^<v^> : Registra nuova evidenza storica (1=succ, 0=
 echo    - outcome ^<target^> ^<v^> : Registra esito reale e calcola calibrazione
 echo    - evaluate              : Scorecard di accuratezza, Brier Score ed ECE
 echo.
-echo  * VALIDAZIONE SCIENTIFICA & BENCHMARK:
+echo  * VALIDAZIONE SCIENTIFICA E BENCHMARK:
 echo    - benchmark             : Esegue il benchmark comparativo completo su 5,000 campioni
 echo    - ablation              : Esegue l'Ablation Study su tutti i sottosistemi
 echo.
