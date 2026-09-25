@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "makima-cli"
+version = "0.1.0"
+dependencies = [
+ "makima-core",
+]
+
+[[package]]
 name = "makima-core"
 version = "0.1.0"

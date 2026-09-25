@@ -1,0 +1,15 @@
+[package]
+name = "makima-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command-line interface for interacting with the Makima forecasting engine"
+
+[[bin]]
+name = "makima"
+path = "src/main.rs"
+
+[dependencies]
+makima-core = { path = "../makima-core" }
