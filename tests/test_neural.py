@@ -1,11 +1,12 @@
-"""
-Unit tests for Makima Neural Engine and PyTorch architectures.
-"""
-
 import os
+import sys
 import unittest
 import tempfile
+from pathlib import Path
 import torch
+
+# Permette l'import del modulo makima_lab durante l'esecuzione dei test
+sys.path.insert(0, str(Path(__file__).parent.parent / "python"))
 
 from makima_lab.neural import (
     MakimaTokenizer,

@@ -252,12 +252,33 @@ Il modulo `makima_lab.neural` introduce una rete neurale profonda in PyTorch con
 
 ---
 
-## 11. Testing Strategy
+## 11. Real Git Telemetry & Background Daemon Mode
+
+Il modulo `makima_lab.git_observer` collega Makima direttamente all'attività reale di sviluppo dell'utente:
+
+```text
+  [ Git Repository Activity ] ──► [ GitObserver ]
+                                         │
+                 ┌───────────────────────┴───────────────────────┐
+                 ▼                                               ▼
+     [ Target Categorization ]                       [ Real-Time Neural Learning ]
+  - git:feature_ratio (Beta prior)                 - MakimaMindNet online learn
+  - git:test_discipline (Beta prior)               - User Latent State Update
+  - git:commit_frequency (Poisson λ)               - SQLite WAL Event Sourcing
+```
+
+1. **Estrazione di Frequenze Reali**: Calcola empiricamente l'intervallo temporale medio e il tasso $\lambda$ per processi di conteggio Poisson.
+2. **Modalità Daemon**: Il watcher in background intercetta i commit non appena vengono creati, aggiornando la memoria dell'assistente e le distribuzioni a priori senza richiedere inserimenti manuali.
+
+---
+
+## 12. Testing Strategy
 
 La validità del sistema è garantita da più livelli di test:
 - **Rust Unit Tests**: correttezza dei singoli tipi, invarianti di dominio e funzioni matematiche elementari.
 - **Rust Integration Tests**: pipeline end-to-end all'interno dei crate.
 - **Neural Tests**: verifica della convergenza dell'encoder `MakimaMindNet`, propagazione della memoria e online learning.
+- **Git Telemetry Tests**: verifica dell'osservatore e categorizzazione automatica dei commit.
 - **Mathematical Property-Based Tests**: verifica di proprietà assiomatiche (es. $\sum P(X) = 1$, divergenza KL $\ge 0$, simmetria dove prevista).
 - **Python Lab Tests**: verifica della riproducibilità numerica degli esperimenti statistici e coerenza del setup.
 
