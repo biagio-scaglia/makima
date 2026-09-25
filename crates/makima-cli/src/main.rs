@@ -13,6 +13,7 @@ fn print_help() {
     println!("COMANDI:");
     println!("    status        Mostra lo stato diagnostico del motore e del sistema");
     println!("    eyes          Esegue l'animazione ASCII dello sguardo di Makima");
+    println!("    lab           Avvia il laboratorio scientifico interattivo Python");
     println!("    help          Mostra questa guida di supporto\n");
     println!("OPZIONI:");
     println!("    --anim        Abilita l'animazione di apertura degli occhi prima dello status");
@@ -63,6 +64,20 @@ fn main() -> ExitCode {
         "eyes" | "anim" => {
             eyes::play_eye_animation(2);
             ExitCode::SUCCESS
+        }
+        "lab" => {
+            println!("Avvio del laboratorio scientifico Python (makima_lab)...\n");
+            let mut cmd = std::process::Command::new("python");
+            cmd.args(["-m", "makima_lab"]);
+            match cmd.status() {
+                Ok(status) if status.success() => ExitCode::SUCCESS,
+                Ok(_) => ExitCode::FAILURE,
+                Err(err) => {
+                    eprintln!("Impossibile avviare Python: {err}");
+                    eprintln!("Assicurati che Python sia installato e presente nel PATH.");
+                    ExitCode::FAILURE
+                }
+            }
         }
         "help" | "-h" | "--help" => {
             print_help();

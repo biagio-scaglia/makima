@@ -45,7 +45,13 @@ echo.
 echo ===================================================
 echo               CONSOLE INTERATTIVA MAKIMA           
 echo ===================================================
-echo Comandi disponibili: status, eyes, help, exit
+echo Comandi disponibili:
+echo   - status    : Mostra lo stato del core engine Rust
+echo   - eyes      : Esegue l'animazione ASCII degli occhi
+echo   - lab       : Avvia la console interattiva Python Lab
+echo   - help      : Mostra la guida comandi
+echo   - exit      : Chiude la sessione
+echo ===================================================
 echo.
 
 :INTERACTIVE_LOOP
@@ -56,6 +62,22 @@ if /i "!USER_INPUT!"=="exit" goto END
 if /i "!USER_INPUT!"=="quit" goto END
 if /i "!USER_INPUT!"=="q" goto END
 if "!USER_INPUT!"=="" goto INTERACTIVE_LOOP
+
+if /i "!USER_INPUT!"=="lab" (
+    python -m makima_lab
+    echo.
+    goto INTERACTIVE_LOOP
+)
+if /i "!USER_INPUT!"=="python" (
+    python -m makima_lab
+    echo.
+    goto INTERACTIVE_LOOP
+)
+if /i "!USER_INPUT!"=="py" (
+    python -m makima_lab
+    echo.
+    goto INTERACTIVE_LOOP
+)
 
 cargo run --bin makima -- !USER_INPUT!
 echo.
