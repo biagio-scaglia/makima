@@ -1,0 +1,90 @@
+{
+  "title": "Makima Subsystem Ablation Study",
+  "total_samples": 5000,
+  "variants": {
+    "Full Makima": {
+      "variant": "Full Makima",
+      "disabled_component": "none (Full Makima)",
+      "brier_score": 0.2097,
+      "log_loss": 0.5919,
+      "bss": 16.11,
+      "ece": 0.1542,
+      "mce": 0.3756,
+      "calibration_rating": "POOR",
+      "delta_brier_vs_full": 0.0,
+      "degradation_pct": 0.0
+    },
+    "w/o Neural Memory": {
+      "variant": "w/o Neural Memory",
+      "disabled_component": "neural_memory",
+      "brier_score": 0.2204,
+      "log_loss": 0.6202,
+      "bss": 11.85,
+      "ece": 0.1627,
+      "mce": 0.4866,
+      "calibration_rating": "POOR",
+      "delta_brier_vs_full": 0.0107,
+      "degradation_pct": 5.1
+    },
+    "w/o NLP Resolution": {
+      "variant": "w/o NLP Resolution",
+      "disabled_component": "nlp",
+      "brier_score": 0.2325,
+      "log_loss": 0.657,
+      "bss": 7.01,
+      "ece": 0.1057,
+      "mce": 0.1766,
+      "calibration_rating": "MODERATE",
+      "delta_brier_vs_full": 0.0228,
+      "degradation_pct": 10.87
+    },
+    "w/o Git Telemetry": {
+      "variant": "w/o Git Telemetry",
+      "disabled_component": "git_telemetry",
+      "brier_score": 0.2076,
+      "log_loss": 0.6078,
+      "bss": 16.96,
+      "ece": 0.1615,
+      "mce": 0.3202,
+      "calibration_rating": "POOR",
+      "delta_brier_vs_full": -0.0021,
+      "degradation_pct": -1.0
+    },
+    "w/o Bayesian Conjugate Layer": {
+      "variant": "w/o Bayesian Conjugate Layer",
+      "disabled_component": "bayesian",
+      "brier_score": 0.2094,
+      "log_loss": 0.5909,
+      "bss": 16.24,
+      "ece": 0.1546,
+      "mce": 0.3776,
+      "calibration_rating": "POOR",
+      "delta_brier_vs_full": -0.0003,
+      "degradation_pct": -0.14
+    },
+    "w/o Temporal Poisson Features": {
+      "variant": "w/o Temporal Poisson Features",
+      "disabled_component": "temporal_poisson",
+      "brier_score": 0.187,
+      "log_loss": 0.5306,
+      "bss": 25.22,
+      "ece": 0.1001,
+      "mce": 0.3175,
+      "calibration_rating": "MODERATE",
+      "delta_brier_vs_full": -0.0227,
+      "degradation_pct": -10.82
+    },
+    "w/o Online Learning (Static)": {
+      "variant": "w/o Online Learning (Static)",
+      "disabled_component": "online_learning",
+      "brier_score": 0.2471,
+      "log_loss": 0.6872,
+      "bss": 1.17,
+      "ece": 0.1066,
+      "mce": 0.2927,
+      "calibration_rating": "MODERATE",
+      "delta_brier_vs_full": 0.0374,
+      "degradation_pct": 17.84
+    }
+  }
+}

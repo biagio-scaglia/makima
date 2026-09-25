@@ -97,23 +97,59 @@ impl Scoring {
     }
 }
 
+/// Valutazione qualitativa della calibrazione statistica basata su soglie ECE formali.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CalibrationRating {
+    /// ECE < 3.0%: Calibrazione eccellente.
+    Excellent,
+    /// ECE < 6.0%: Calibrazione buona.
+    Good,
+    /// ECE < 12.0%: Calibrazione moderata.
+    Moderate,
+    /// ECE >= 12.0%: Calibrazione scadente, richiede ricalibrazione.
+    Poor,
+}
+
+impl fmt::Display for CalibrationRating {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Excellent => write!(f, "EXCELLENT (ECE < 3%)"),
+            Self::Good => write!(f, "GOOD (ECE < 6%)"),
+            Self::Moderate => write!(f, "MODERATE (ECE < 12%)"),
+            Self::Poor => write!(f, "POOR (ECE >= 12%)"),
+        }
+    }
+}
+
 /// Registro e scheda di valutazione aggregata della qualità previsionale di Makima.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EvaluationReport {
+    /// Numero totale di previsioni registrate nel sistema.
+    pub total_forecasts: usize,
     /// Numero di previsioni confrontate con il rispettivo esito reale.
-    pub total_evaluated: usize,
+    pub resolved_outcomes: usize,
+    /// Numero di previsioni ancora in attesa di verifica.
+    pub pending_forecasts: usize,
     /// Media del Brier Score del modello (più basso = migliore).
     pub mean_brier_score: f64,
     /// Media della Log Loss (più basso = migliore).
     pub mean_log_loss: f64,
     /// Brier Score di una baseline ingenua costante al 50%.
     pub baseline_brier_score: f64,
-    /// Brier Skill Score rispetto alla baseline (positivo = supera la baseline).
+    /// Brier Score della baseline climatologica (tasso base empirico $\bar{y}$).
+    pub climatological_brier_score: f64,
+    /// Brier Skill Score rispetto alla baseline al 50% (positivo = supera la baseline).
     pub brier_skill_score: f64,
+    /// Brier Skill Score rispetto alla baseline climatologica reale.
+    pub brier_skill_score_climatological: f64,
     /// Expected Calibration Error (ECE pesato sul numero di campioni per bin).
     pub expected_calibration_error: f64,
     /// Maximum Calibration Error (MCE massimo scostamento rilevato).
     pub max_calibration_error: f64,
+    /// Giudizio qualitativo sintetico basato su policy documentata ECE.
+    pub calibration_rating: CalibrationRating,
+    /// Percentuale di miglioramento rispetto alla baseline standard.
+    pub baseline_improvement_pct: f64,
     /// Fasce di calibrazione con frequenze osservate (Reliability Data).
     pub calibration_bins: Vec<CalibrationBin>,
 }
@@ -122,107 +158,153 @@ impl fmt::Display for EvaluationReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
-            "============================================================"
+            "╔══════════════════════════════════════════════════════════════╗"
         )?;
         writeln!(
             f,
-            "             MAKIMA PREDICTIVE EVALUATION REPORT            "
+            "║                     MAKIMA EVALUATION                        ║"
         )?;
         writeln!(
             f,
-            "============================================================"
+            "╠══════════════════════════════════════════════════════════════╣"
         )?;
-        writeln!(f, "Previsioni Valutate:        {}", self.total_evaluated)?;
         writeln!(
             f,
-            "Mean Brier Score (Modello): {:.4}  (0.0 = perfetto, 0.25 = casuale)",
+            "║ Previsioni Totali (Ledger): {:<32} ║",
+            self.total_forecasts
+        )?;
+        writeln!(
+            f,
+            "║ Esiti Reali Risolti:        {:<32} ║",
+            self.resolved_outcomes
+        )?;
+        writeln!(
+            f,
+            "║ Previsioni Pendenti:        {:<32} ║",
+            self.pending_forecasts
+        )?;
+        writeln!(
+            f,
+            "║                                                              ║"
+        )?;
+        writeln!(
+            f,
+            "║ ACCURACY & PROPER SCORING                                    ║"
+        )?;
+        writeln!(
+            f,
+            "║  • Mean Brier Score:        {:<6.4}  (0.0=perfetto, 0.25=rand) ║",
             self.mean_brier_score
         )?;
         writeln!(
             f,
-            "Baseline Brier (50% unif):  {:.4}",
+            "║  • Mean Log Loss:           {:<32.4} ║",
+            self.mean_log_loss
+        )?;
+        writeln!(
+            f,
+            "║  • Baseline Brier (50%):    {:<32.4} ║",
             self.baseline_brier_score
         )?;
         writeln!(
             f,
-            "Brier Skill Score (BSS):    {:+.2}%  ({})",
-            self.brier_skill_score * 100.0,
-            if self.brier_skill_score > 0.0 {
-                "Supera la baseline"
-            } else {
-                "Inferiore alla baseline"
-            }
+            "║  • Climatological Brier:    {:<32.4} ║",
+            self.climatological_brier_score
         )?;
-        writeln!(f, "Mean Log Loss:              {:.4}", self.mean_log_loss)?;
         writeln!(
             f,
-            "Expected Calib Error (ECE): {:.2}%",
+            "║  • BSS (vs 50% Baseline):   {:<+6.2}% {:<25} ║",
+            self.brier_skill_score * 100.0,
+            if self.brier_skill_score > 0.0 { "(Supera baseline)" } else { "(Inferiore)" }
+        )?;
+        writeln!(
+            f,
+            "║  • BSS (vs Climatology):    {:<+6.2}% {:<25} ║",
+            self.brier_skill_score_climatological * 100.0,
+            if self.brier_skill_score_climatological > 0.0 { "(Supera climatologia)" } else { "(Inferiore)" }
+        )?;
+        writeln!(
+            f,
+            "║                                                              ║"
+        )?;
+        writeln!(
+            f,
+            "║ CALIBRATION & RELIABILITY                                    ║"
+        )?;
+        writeln!(
+            f,
+            "║  • ECE (Expected Error):    {:<5.2}%  (Target < 5.0%)          ║",
             self.expected_calibration_error * 100.0
         )?;
         writeln!(
             f,
-            "Max Calib Error (MCE):      {:.2}%",
+            "║  • MCE (Max Error):         {:<32.2}% ║",
             self.max_calibration_error * 100.0
         )?;
         writeln!(
             f,
-            "------------------------------------------------------------"
+            "║  • Stato Calibrazione:      {:<32} ║",
+            self.calibration_rating.to_string()
         )?;
         writeln!(
             f,
-            "DIAGRAMMA DI CALIBRAZIONE & AFFIDABILITÀ (RELIABILITY CURVE)"
+            "║  • Baseline Improvement:    {:<+6.2}%                          ║",
+            self.baseline_improvement_pct
         )?;
         writeln!(
             f,
-            "Fascia Pred | N. | E[P]  | Reale | Errore | Allineamento"
+            "╠══════════════════════════════════════════════════════════════╣"
+        )?;
+        writeln!(
+            f,
+            "║ DIAGRAMMA DI CALIBRAZIONE & RELIABILITY CURVE (BINS)         ║"
+        )?;
+        writeln!(
+            f,
+            "║ Fascia   | N.  | E[P]  | Reale | Errore | Allineamento (P vs R) ║"
+        )?;
+        writeln!(
+            f,
+            "╟──────────┼─────┼───────┼───────┼────────┼───────────────────────╢"
         )?;
 
         for bin in &self.calibration_bins {
             if bin.count == 0 {
                 writeln!(
                     f,
-                    "{:.2}-{:.2}   |  0 |  --   |  --   |   --   | [                    ]",
-                    bin.lower_bound, bin.upper_bound
+                    "║ {:.0}%-{:<3.0}% |   0 |   --  |   --  |   --   | [--------------------] ║",
+                    bin.lower_bound * 100.0,
+                    bin.upper_bound * 100.0
                 )?;
             } else {
-                // Rendering barra ASCII a 20 caratteri confrontando Previsto (P) e Reale (R)
                 let p_pos = (bin.mean_predicted * 19.0).round().clamp(0.0, 19.0) as usize;
                 let r_pos = (bin.observed_frequency * 19.0).round().clamp(0.0, 19.0) as usize;
 
                 let mut bar = vec!['-'; 20];
                 if p_pos == r_pos {
-                    bar[p_pos] = '='; // Perfetta coincidenza
+                    bar[p_pos] = '=';
                 } else {
                     bar[p_pos] = 'P';
                     bar[r_pos] = 'R';
                 }
 
-                let note = if bin.calibration_error <= 0.05 {
-                    "Calibrato"
-                } else if bin.mean_predicted > bin.observed_frequency {
-                    "Overconfident"
-                } else {
-                    "Underconfident"
-                };
-
                 writeln!(
                     f,
-                    "{:.2}-{:.2}   | {:2} | {:.2}  | {:.2}  | {:5.1}% | [{}] {}",
-                    bin.lower_bound,
-                    bin.upper_bound,
+                    "║ {:.0}%-{:<3.0}% | {:3} | {:5.2} | {:5.2} | {:5.1}% | [{}] ║",
+                    bin.lower_bound * 100.0,
+                    bin.upper_bound * 100.0,
                     bin.count,
                     bin.mean_predicted,
                     bin.observed_frequency,
                     bin.calibration_error * 100.0,
-                    bar.into_iter().collect::<String>(),
-                    note
+                    bar.into_iter().collect::<String>()
                 )?;
             }
         }
 
         write!(
             f,
-            "============================================================"
+            "╚══════════════════════════════════════════════════════════════╝"
         )
     }
 }
@@ -305,6 +387,12 @@ impl Evaluator {
     /// Calcola il report statistico completo di calibrazione e scoring.
     #[must_use]
     pub fn evaluate(&self) -> Option<EvaluationReport> {
+        self.evaluate_with_ledger(self.pairs.len(), 0)
+    }
+
+    /// Calcola il report statistico completo integrando il conteggio del ledger delle previsioni.
+    #[must_use]
+    pub fn evaluate_with_ledger(&self, total_forecasts: usize, pending_count: usize) -> Option<EvaluationReport> {
         if self.pairs.is_empty() {
             return None;
         }
@@ -313,6 +401,7 @@ impl Evaluator {
         let mut sum_brier = 0.0;
         let mut sum_log_loss = 0.0;
         let mut sum_baseline_brier = 0.0;
+        let mut sum_outcomes = 0.0;
 
         let baseline_prob = Probability::new(0.5).unwrap_or(Probability::ZERO);
 
@@ -320,12 +409,21 @@ impl Evaluator {
             sum_brier += Scoring::brier_score(p, y);
             sum_log_loss += Scoring::log_loss(p, y);
             sum_baseline_brier += Scoring::brier_score(baseline_prob, y);
+            if y {
+                sum_outcomes += 1.0;
+            }
         }
 
         let mean_brier = sum_brier / n;
         let mean_log_loss = sum_log_loss / n;
         let baseline_brier = sum_baseline_brier / n;
         let bss = Scoring::brier_skill_score(mean_brier, baseline_brier);
+
+        // Calcolo baseline climatologica: p_clim = sum(y)/n
+        let p_clim_val = (sum_outcomes / n).clamp(0.0001, 0.9999);
+        let p_clim = Probability::from_clamped(p_clim_val);
+        let clim_brier: f64 = self.pairs.iter().map(|&(_, y)| Scoring::brier_score(p_clim, y)).sum::<f64>() / n;
+        let bss_clim = Scoring::brier_skill_score(mean_brier, clim_brier);
 
         let bins = self.calibration_bins(5);
 
@@ -342,14 +440,36 @@ impl Evaluator {
             }
         }
 
+        let rating = if weighted_error_sum < 0.030 {
+            CalibrationRating::Excellent
+        } else if weighted_error_sum < 0.060 {
+            CalibrationRating::Good
+        } else if weighted_error_sum < 0.120 {
+            CalibrationRating::Moderate
+        } else {
+            CalibrationRating::Poor
+        };
+
+        let baseline_imp = if baseline_brier > 1e-9 {
+            ((baseline_brier - mean_brier) / baseline_brier) * 100.0
+        } else {
+            0.0
+        };
+
         Some(EvaluationReport {
-            total_evaluated: self.pairs.len(),
+            total_forecasts: total_forecasts.max(self.pairs.len()),
+            resolved_outcomes: self.pairs.len(),
+            pending_forecasts: pending_count,
             mean_brier_score: mean_brier,
             mean_log_loss,
             baseline_brier_score: baseline_brier,
+            climatological_brier_score: clim_brier,
             brier_skill_score: bss,
+            brier_skill_score_climatological: bss_clim,
             expected_calibration_error: weighted_error_sum,
             max_calibration_error: max_err,
+            calibration_rating: rating,
+            baseline_improvement_pct: baseline_imp,
             calibration_bins: bins,
         })
     }
@@ -385,7 +505,7 @@ mod tests {
         evaluator.add_prediction_outcome(Probability::new(0.1).expect("v"), false);
 
         let report = evaluator.evaluate().expect("report presente");
-        assert_eq!(report.total_evaluated, 3);
+        assert_eq!(report.resolved_outcomes, 3);
         assert!(report.mean_brier_score < 0.25);
         assert!(report.brier_skill_score > 0.0);
         assert!(!report.calibration_bins.is_empty());

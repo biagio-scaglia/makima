@@ -11,8 +11,10 @@ pub mod laplace;
 pub mod prob;
 pub mod storage;
 
-pub use eval::{CalibrationBin, EvaluationReport, Evaluator, Outcome, Scoring};
-pub use forecast::{Forecast, ForecastError};
+pub use eval::{CalibrationBin, CalibrationRating, EvaluationReport, Evaluator, Outcome, Scoring};
+pub use forecast::{
+    Forecast, ForecastError, ForecastId, ForecastLedger, ForecastRecord, ForecastStatus,
+};
 pub use laplace::{LaplaceMail, TargetSummary};
 pub use prob::{
     Bernoulli, BetaDistribution, ContinuousDistribution, DiscreteDistribution, Distribution,
@@ -53,6 +55,10 @@ pub struct EngineStatus {
     pub total_observations: usize,
     /// Numero totale di esiti reali registrati per la valutazione.
     pub total_outcomes: usize,
+    /// Numero di previsioni totali nel ledger.
+    pub total_forecasts: usize,
+    /// Numero di previsioni pendenti in attesa di verifica.
+    pub pending_forecasts: usize,
 }
 
 /// Identificativo univoco per una singola osservazione empirica.
@@ -100,6 +106,7 @@ pub struct MakimaEngine {
     observations: Vec<Observation>,
     outcomes: Vec<Outcome>,
     evaluator: Evaluator,
+    ledger: ForecastLedger,
 }
 
 impl MakimaEngine {
@@ -123,6 +130,8 @@ impl MakimaEngine {
             state: self.state,
             total_observations: self.observations.len(),
             total_outcomes: self.outcomes.len(),
+            total_forecasts: self.ledger.total_count(),
+            pending_forecasts: self.ledger.pending_count(),
         }
     }
 
@@ -156,8 +165,30 @@ impl MakimaEngine {
         let forecast = self.predict_target(&target_str);
         self.evaluator
             .add_prediction_outcome(forecast.probability, occurred);
+        self.ledger
+            .resolve_for_target(&target_str, occurred, timestamp_sec);
         self.outcomes
             .push(Outcome::new(target_str, occurred, timestamp_sec));
+    }
+
+    /// Registra formalmente una nuova previsione nel ledger con stato `Pending`.
+    pub fn register_forecast_in_ledger(
+        &mut self,
+        target: impl Into<String>,
+        created_at_sec: i64,
+        probability: Probability,
+        window_desc: impl Into<String>,
+        evidence_count: usize,
+        model_name: impl Into<String>,
+    ) -> ForecastId {
+        self.ledger.register_forecast(
+            target,
+            created_at_sec,
+            probability,
+            window_desc,
+            evidence_count,
+            model_name,
+        )
     }
 
     /// Restituisce la lista di osservazioni storiche attualmente caricate.
@@ -170,6 +201,17 @@ impl MakimaEngine {
     #[must_use]
     pub fn outcomes(&self) -> &[Outcome] {
         &self.outcomes
+    }
+
+    /// Restituisce il riferimento al ledger di tracciamento delle previsioni.
+    #[must_use]
+    pub fn ledger(&self) -> &ForecastLedger {
+        &self.ledger
+    }
+
+    /// Restituisce il riferimento mutabile al ledger.
+    pub fn ledger_mut(&mut self) -> &mut ForecastLedger {
+        &mut self.ledger
     }
 
     /// Genera una stima probabilistica per il target specificato utilizzando un prior uniforme.
@@ -258,7 +300,10 @@ impl MakimaEngine {
     /// Genera il report di valutazione delle performance previsionali (Brier Score, Skill Score, ECE).
     #[must_use]
     pub fn evaluate_performance(&self) -> Option<EvaluationReport> {
-        self.evaluator.evaluate()
+        self.evaluator.evaluate_with_ledger(
+            self.ledger.total_count(),
+            self.ledger.pending_count(),
+        )
     }
 }
 
@@ -315,7 +360,7 @@ mod tests {
         let report = engine.evaluate_performance();
         assert!(report.is_some());
         let rep = report.expect("report presente");
-        assert_eq!(rep.total_evaluated, 1);
+        assert_eq!(rep.resolved_outcomes, 1);
         assert!(rep.mean_brier_score < 0.25);
     }
 

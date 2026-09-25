@@ -39,11 +39,16 @@ echo ========================================================================
 echo  * PREVISIONI E DOMINIO:
 echo    - query ^<frase^>          : Interroga in linguaggio naturale (NLP Pipeline)
 echo    - predict ^<target^>      : Calcola previsione bayesiana Beta-Binomiale
+echo    - forecasts             : Registro storico del ciclo di vita delle previsioni
 echo    - targets               : Dashboard multi-target e parametri posterior
 echo    - mail                  : Genera il bollettino previsionale Laplace Mail
 echo    - observe ^<target^> ^<v^> : Registra nuova evidenza storica (1=succ, 0=fail)
 echo    - outcome ^<target^> ^<v^> : Registra esito reale e calcola calibrazione
-echo    - evaluate              : Scorecard di accuratezza, Brier Score e Log-Loss
+echo    - evaluate              : Scorecard di accuratezza, Brier Score ed ECE
+echo.
+echo  * VALIDAZIONE SCIENTIFICA & BENCHMARK:
+echo    - benchmark             : Esegue il benchmark comparativo completo su 5,000 campioni
+echo    - ablation              : Esegue l'Ablation Study su tutti i sottosistemi
 echo.
 echo  * COGNIZIONE NEURALE E TELEMETRIA GIT:
 echo    - tell ^<testo^>           : Confida un fatto a Makima (NLP + PyTorch + SQLite)
@@ -71,18 +76,13 @@ if /i "!USER_INPUT!"=="quit" goto END
 if /i "!USER_INPUT!"=="q" goto END
 if "!USER_INPUT!"=="" goto INTERACTIVE_LOOP
 
-if /i "!USER_INPUT!"=="lab" (
-    python -m makima_lab
+if /i "!USER_INPUT!"=="benchmark" (
+    python -m makima_lab benchmark
     echo.
     goto INTERACTIVE_LOOP
 )
-if /i "!USER_INPUT!"=="python" (
-    python -m makima_lab
-    echo.
-    goto INTERACTIVE_LOOP
-)
-if /i "!USER_INPUT!"=="py" (
-    python -m makima_lab
+if /i "!USER_INPUT!"=="ablation" (
+    python -m makima_lab ablation
     echo.
     goto INTERACTIVE_LOOP
 )

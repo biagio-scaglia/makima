@@ -1,5 +1,5 @@
-//! Persistenza su file e storage SQLite WAL con Event Sourcing per Makima.
-
+use crate::forecast::{ForecastId, ForecastRecord, ForecastStatus};
+use crate::prob::Probability;
 use crate::{MakimaEngine, Observation, ObservationId, Outcome};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,9 @@ pub struct MakimaStore {
     pub observations: Vec<Observation>,
     /// Elenco degli esiti reali registrati per la valutazione di calibrazione.
     pub outcomes: Vec<Outcome>,
+    /// Registro storico del ciclo di vita delle previsioni emesse.
+    #[serde(default)]
+    pub forecasts: Vec<ForecastRecord>,
 }
 
 impl Default for MakimaStore {
@@ -24,6 +27,7 @@ impl Default for MakimaStore {
             version: env!("CARGO_PKG_VERSION").to_string(),
             observations: Vec::new(),
             outcomes: Vec::new(),
+            forecasts: Vec::new(),
         }
     }
 }
@@ -97,10 +101,36 @@ impl MakimaStore {
             Outcome::new("daily_build", true, 1_700_200_000),
         ];
 
+        let mut forecasts = Vec::new();
+        let mut f1 = ForecastRecord::new_pending(
+            ForecastId(1),
+            "framework_release",
+            1_700_600_000,
+            Probability::from_clamped(0.70),
+            "7 days",
+            8,
+            "BayesianConjugate",
+        );
+        f1.resolve(true, 1_700_650_000);
+        forecasts.push(f1);
+
+        let mut f2 = ForecastRecord::new_pending(
+            ForecastId(2),
+            "daily_build",
+            1_700_150_000,
+            Probability::from_clamped(0.80),
+            "24 hours",
+            3,
+            "BayesianConjugate",
+        );
+        f2.resolve(true, 1_700_200_000);
+        forecasts.push(f2);
+
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
             observations,
             outcomes,
+            forecasts,
         }
     }
 
@@ -121,6 +151,7 @@ impl MakimaStore {
             version: engine.version().to_string(),
             observations: engine.observations().to_vec(),
             outcomes: engine.outcomes().to_vec(),
+            forecasts: engine.ledger().records().to_vec(),
         }
     }
 }
@@ -155,7 +186,7 @@ impl MakimaDb {
         Ok(db)
     }
 
-    /// Crea lo schema delle tabelle di Event Sourcing, osservazioni, esiti e diario se non presenti.
+    /// Crea lo schema delle tabelle di Event Sourcing, osservazioni, esiti, ledger e diario se non presenti.
     fn init_schema(&self) -> rusqlite::Result<()> {
         self.conn.execute_batch(
             r#"
@@ -182,6 +213,21 @@ impl MakimaDb {
                 timestamp_sec INTEGER NOT NULL,
                 brier_score REAL,
                 log_loss REAL
+            );
+
+            CREATE TABLE IF NOT EXISTS forecast_ledger (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                target TEXT NOT NULL,
+                created_at_sec INTEGER NOT NULL,
+                probability REAL NOT NULL,
+                window_desc TEXT NOT NULL,
+                evidence_count INTEGER NOT NULL,
+                model_name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                outcome INTEGER,
+                brier_score REAL,
+                calibration_bucket TEXT,
+                resolved_at_sec INTEGER
             );
 
             CREATE TABLE IF NOT EXISTS journal_entries (
@@ -271,11 +317,36 @@ impl MakimaDb {
             for out in &store.outcomes {
                 self.insert_outcome(&out.target, out.occurred, out.timestamp_sec, None, None)?;
             }
+            for f in &store.forecasts {
+                let (status_str, outcome, brier, bucket, res_ts) = match &f.status {
+                    ForecastStatus::Pending => ("PENDING", None, None, None, None),
+                    ForecastStatus::Resolved { actual, brier_score, calibration_bucket, resolved_at_sec } => {
+                        ("RESOLVED", Some(if *actual { 1 } else { 0 }), Some(*brier_score), Some(calibration_bucket.as_str()), Some(*resolved_at_sec))
+                    }
+                };
+                let _ = self.conn.execute(
+                    "INSERT INTO forecast_ledger (id, target, created_at_sec, probability, window_desc, evidence_count, model_name, status, outcome, brier_score, calibration_bucket, resolved_at_sec) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                    params![
+                        f.id.0 as i64,
+                        f.target,
+                        f.created_at_sec,
+                        f.probability.value(),
+                        f.window_desc,
+                        f.evidence_count as i64,
+                        f.model_name,
+                        status_str,
+                        outcome,
+                        brier,
+                        bucket,
+                        res_ts,
+                    ],
+                );
+            }
         }
         Ok(())
     }
 
-    /// Carica tutte le osservazioni ed esiti dal database SQLite all'interno di [`MakimaEngine`].
+    /// Carica tutte le osservazioni, esiti e ledger dal database SQLite all'interno di [`MakimaEngine`].
     pub fn load_into_engine(&self, engine: &mut MakimaEngine) -> rusqlite::Result<()> {
         let mut stmt = self
             .conn
@@ -309,6 +380,62 @@ impl MakimaDb {
         for out in out_iter {
             let o = out?;
             engine.record_outcome(&o.target, o.occurred, o.timestamp_sec);
+        }
+
+        let mut f_stmt = self
+            .conn
+            .prepare("SELECT id, target, created_at_sec, probability, window_desc, evidence_count, model_name, status, outcome, brier_score, calibration_bucket, resolved_at_sec FROM forecast_ledger ORDER BY id ASC")?;
+
+        let f_iter = f_stmt.query_map([], |row| {
+            let id: u64 = row.get(0)?;
+            let target: String = row.get(1)?;
+            let created_at_sec: i64 = row.get(2)?;
+            let prob_val: f64 = row.get(3)?;
+            let window_desc: String = row.get(4)?;
+            let evidence_count: usize = row.get(5)?;
+            let model_name: String = row.get(6)?;
+            let status_str: String = row.get(7)?;
+
+            let status = if status_str == "RESOLVED" {
+                let actual = row.get::<_, Option<i32>>(8)?.unwrap_or(0) != 0;
+                let brier_score = row.get::<_, Option<f64>>(9)?.unwrap_or(0.0);
+                let calibration_bucket = row.get::<_, Option<String>>(10)?.unwrap_or_default();
+                let resolved_at_sec = row.get::<_, Option<i64>>(11)?.unwrap_or(0);
+                ForecastStatus::Resolved {
+                    actual,
+                    brier_score,
+                    calibration_bucket,
+                    resolved_at_sec,
+                }
+            } else {
+                ForecastStatus::Pending
+            };
+
+            Ok(ForecastRecord {
+                id: ForecastId(id),
+                target,
+                created_at_sec,
+                probability: Probability::from_clamped(prob_val),
+                window_desc,
+                evidence_count,
+                model_name,
+                status,
+            })
+        })?;
+
+        for rec in f_iter.flatten() {
+            let exists = engine.ledger().records().iter().any(|r| r.id == rec.id);
+            if !exists {
+                // Inject or update
+                let _ = engine.register_forecast_in_ledger(
+                    rec.target,
+                    rec.created_at_sec,
+                    rec.probability,
+                    rec.window_desc,
+                    rec.evidence_count,
+                    rec.model_name,
+                );
+            }
         }
 
         Ok(())

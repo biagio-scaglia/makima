@@ -1,0 +1,368 @@
+{
+  "title": "Makima Probabilistic Forecasting Scientific Benchmark",
+  "seed": 42,
+  "datasets": {
+    "stationary_stream_p72": {
+      "dataset": "stationary_stream_p72",
+      "sample_count": 1500,
+      "models": {
+        "constant_50": {
+          "brier_score": 0.25,
+          "log_loss": 0.6931,
+          "bss_vs_50": 0.0,
+          "bss_vs_clim": -27.04,
+          "ece": 0.2307,
+          "mce": 0.2307,
+          "calibration_rating": "POOR",
+          "improvement_vs_50_pct": 0.0
+        },
+        "climatological": {
+          "brier_score": 0.1977,
+          "log_loss": 0.5865,
+          "bss_vs_50": 20.91,
+          "bss_vs_clim": -0.48,
+          "ece": 0.0145,
+          "mce": 0.5,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 20.91
+        },
+        "static_prior": {
+          "brier_score": 0.25,
+          "log_loss": 0.6931,
+          "bss_vs_50": 0.0,
+          "bss_vs_clim": -27.04,
+          "ece": 0.2307,
+          "mce": 0.2307,
+          "calibration_rating": "POOR",
+          "improvement_vs_50_pct": 0.0
+        },
+        "bayesian_conjugate": {
+          "brier_score": 0.1977,
+          "log_loss": 0.585,
+          "bss_vs_50": 20.94,
+          "bss_vs_clim": -0.44,
+          "ece": 0.0123,
+          "mce": 0.5,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 20.94
+        },
+        "bayesian_nlp": {
+          "brier_score": 0.1976,
+          "log_loss": 0.5849,
+          "bss_vs_50": 20.94,
+          "bss_vs_clim": -0.43,
+          "ece": 0.0121,
+          "mce": 0.5,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 20.94
+        },
+        "bayesian_neural": {
+          "brier_score": 0.176,
+          "log_loss": 0.5272,
+          "bss_vs_50": 29.61,
+          "bss_vs_clim": 10.58,
+          "ece": 0.0865,
+          "mce": 0.3829,
+          "calibration_rating": "MODERATE",
+          "improvement_vs_50_pct": 29.61
+        },
+        "full_makima": {
+          "brier_score": 0.1936,
+          "log_loss": 0.57,
+          "bss_vs_50": 22.54,
+          "bss_vs_clim": 1.6,
+          "ece": 0.0986,
+          "mce": 0.4467,
+          "calibration_rating": "MODERATE",
+          "improvement_vs_50_pct": 22.54
+        }
+      }
+    },
+    "stationary_stream_p25": {
+      "dataset": "stationary_stream_p25",
+      "sample_count": 1000,
+      "models": {
+        "constant_50": {
+          "brier_score": 0.25,
+          "log_loss": 0.6931,
+          "bss_vs_50": 0.0,
+          "bss_vs_clim": -32.28,
+          "ece": 0.247,
+          "mce": 0.247,
+          "calibration_rating": "POOR",
+          "improvement_vs_50_pct": 0.0
+        },
+        "climatological": {
+          "brier_score": 0.191,
+          "log_loss": 0.5726,
+          "bss_vs_50": 23.61,
+          "bss_vs_clim": -1.05,
+          "ece": 0.0088,
+          "mce": 0.99,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 23.61
+        },
+        "static_prior": {
+          "brier_score": 0.25,
+          "log_loss": 0.6931,
+          "bss_vs_50": 0.0,
+          "bss_vs_clim": -32.28,
+          "ece": 0.247,
+          "mce": 0.247,
+          "calibration_rating": "POOR",
+          "improvement_vs_50_pct": 0.0
+        },
+        "bayesian_conjugate": {
+          "brier_score": 0.1904,
+          "log_loss": 0.569,
+          "bss_vs_50": 23.83,
+          "bss_vs_clim": -0.76,
+          "ece": 0.0108,
+          "mce": 0.6667,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 23.83
+        },
+        "bayesian_nlp": {
+          "brier_score": 0.1904,
+          "log_loss": 0.569,
+          "bss_vs_50": 23.83,
+          "bss_vs_clim": -0.76,
+          "ece": 0.011,
+          "mce": 0.6624,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 23.83
+        },
+        "bayesian_neural": {
+          "brier_score": 0.1718,
+          "log_loss": 0.5199,
+          "bss_vs_50": 31.27,
+          "bss_vs_clim": 9.08,
+          "ece": 0.0935,
+          "mce": 0.6126,
+          "calibration_rating": "MODERATE",
+          "improvement_vs_50_pct": 31.27
+        },
+        "full_makima": {
+          "brier_score": 0.2286,
+          "log_loss": 0.6501,
+          "bss_vs_50": 8.57,
+          "bss_vs_clim": -20.94,
+          "ece": 0.2443,
+          "mce": 0.3948,
+          "calibration_rating": "POOR",
+          "improvement_vs_50_pct": 8.57
+        }
+      }
+    },
+    "regime_shifts": {
+      "dataset": "regime_shifts",
+      "sample_count": 1500,
+      "models": {
+        "constant_50": {
+          "brier_score": 0.25,
+          "log_loss": 0.6931,
+          "bss_vs_50": 0.0,
+          "bss_vs_clim": -0.22,
+          "ece": 0.0233,
+          "mce": 0.0233,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 0.0
+        },
+        "climatological": {
+          "brier_score": 0.2503,
+          "log_loss": 0.6952,
+          "bss_vs_50": -0.12,
+          "bss_vs_clim": -0.34,
+          "ece": 0.1089,
+          "mce": 0.4788,
+          "calibration_rating": "MODERATE",
+          "improvement_vs_50_pct": -0.12
+        },
+        "static_prior": {
+          "brier_score": 0.25,
+          "log_loss": 0.6931,
+          "bss_vs_50": 0.0,
+          "bss_vs_clim": -0.22,
+          "ece": 0.0233,
+          "mce": 0.0233,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 0.0
+        },
+        "bayesian_conjugate": {
+          "brier_score": 0.2502,
+          "log_loss": 0.6943,
+          "bss_vs_50": -0.09,
+          "bss_vs_clim": -0.31,
+          "ece": 0.1063,
+          "mce": 0.4716,
+          "calibration_rating": "MODERATE",
+          "improvement_vs_50_pct": -0.09
+        },
+        "bayesian_nlp": {
+          "brier_score": 0.2502,
+          "log_loss": 0.6942,
+          "bss_vs_50": -0.08,
+          "bss_vs_clim": -0.3,
+          "ece": 0.106,
+          "mce": 0.4714,
+          "calibration_rating": "MODERATE",
+          "improvement_vs_50_pct": -0.08
+        },
+        "bayesian_neural": {
+          "brier_score": 0.2398,
+          "log_loss": 0.6829,
+          "bss_vs_50": 4.08,
+          "bss_vs_clim": 3.87,
+          "ece": 0.1264,
+          "mce": 0.2925,
+          "calibration_rating": "POOR",
+          "improvement_vs_50_pct": 4.08
+        },
+        "full_makima": {
+          "brier_score": 0.2312,
+          "log_loss": 0.6547,
+          "bss_vs_50": 7.52,
+          "bss_vs_clim": 7.32,
+          "ece": 0.0955,
+          "mce": 0.2177,
+          "calibration_rating": "MODERATE",
+          "improvement_vs_50_pct": 7.52
+        }
+      }
+    },
+    "poisson_arrivals": {
+      "dataset": "poisson_arrivals",
+      "sample_count": 1000,
+      "models": {
+        "constant_50": {
+          "brier_score": 0.25,
+          "log_loss": 0.6931,
+          "bss_vs_50": 0.0,
+          "bss_vs_clim": 0.0,
+          "ece": 0.5,
+          "mce": 0.5,
+          "calibration_rating": "POOR",
+          "improvement_vs_50_pct": 0.0
+        },
+        "climatological": {
+          "brier_score": 0.0003,
+          "log_loss": 0.0107,
+          "bss_vs_50": 99.86,
+          "bss_vs_clim": 0.0,
+          "ece": 0.0105,
+          "mce": 0.5,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 99.86
+        },
+        "static_prior": {
+          "brier_score": 0.25,
+          "log_loss": 0.6931,
+          "bss_vs_50": 0.0,
+          "bss_vs_clim": 0.0,
+          "ece": 0.5,
+          "mce": 0.5,
+          "calibration_rating": "POOR",
+          "improvement_vs_50_pct": 0.0
+        },
+        "bayesian_conjugate": {
+          "brier_score": 0.0006,
+          "log_loss": 0.0069,
+          "bss_vs_50": 99.74,
+          "bss_vs_clim": 0.0,
+          "ece": 0.0065,
+          "mce": 0.5,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 99.74
+        },
+        "bayesian_nlp": {
+          "brier_score": 0.0007,
+          "log_loss": 0.0074,
+          "bss_vs_50": 99.73,
+          "bss_vs_clim": 0.0,
+          "ece": 0.0069,
+          "mce": 0.5,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 99.73
+        },
+        "bayesian_neural": {
+          "brier_score": 0.0014,
+          "log_loss": 0.0282,
+          "bss_vs_50": 99.46,
+          "bss_vs_clim": 0.0,
+          "ece": 0.0274,
+          "mce": 0.4955,
+          "calibration_rating": "EXCELLENT",
+          "improvement_vs_50_pct": 99.46
+        },
+        "full_makima": {
+          "brier_score": 0.0087,
+          "log_loss": 0.0941,
+          "bss_vs_50": 96.51,
+          "bss_vs_clim": 0.0,
+          "ece": 0.0893,
+          "mce": 0.4535,
+          "calibration_rating": "MODERATE",
+          "improvement_vs_50_pct": 96.51
+        }
+      }
+    }
+  },
+  "aggregate_summary": {
+    "constant_50": {
+      "mean_brier_score": 0.25,
+      "mean_log_loss": 0.6931,
+      "mean_ece": 0.2502,
+      "mean_bss_vs_50": 0.0,
+      "mean_bss_vs_clim": -14.88,
+      "calibration_rating": "POOR"
+    },
+    "climatological": {
+      "mean_brier_score": 0.1598,
+      "mean_log_loss": 0.4662,
+      "mean_ece": 0.0357,
+      "mean_bss_vs_50": 36.06,
+      "mean_bss_vs_clim": -0.47,
+      "calibration_rating": "GOOD"
+    },
+    "static_prior": {
+      "mean_brier_score": 0.25,
+      "mean_log_loss": 0.6931,
+      "mean_ece": 0.2502,
+      "mean_bss_vs_50": 0.0,
+      "mean_bss_vs_clim": -14.88,
+      "calibration_rating": "POOR"
+    },
+    "bayesian_conjugate": {
+      "mean_brier_score": 0.1597,
+      "mean_log_loss": 0.4638,
+      "mean_ece": 0.034,
+      "mean_bss_vs_50": 36.1,
+      "mean_bss_vs_clim": -0.38,
+      "calibration_rating": "GOOD"
+    },
+    "bayesian_nlp": {
+      "mean_brier_score": 0.1597,
+      "mean_log_loss": 0.4639,
+      "mean_ece": 0.034,
+      "mean_bss_vs_50": 36.11,
+      "mean_bss_vs_clim": -0.37,
+      "calibration_rating": "GOOD"
+    },
+    "bayesian_neural": {
+      "mean_brier_score": 0.1472,
+      "mean_log_loss": 0.4395,
+      "mean_ece": 0.0834,
+      "mean_bss_vs_50": 41.1,
+      "mean_bss_vs_clim": 5.88,
+      "calibration_rating": "MODERATE"
+    },
+    "full_makima": {
+      "mean_brier_score": 0.1655,
+      "mean_log_loss": 0.4922,
+      "mean_ece": 0.1319,
+      "mean_bss_vs_50": 33.78,
+      "mean_bss_vs_clim": -3.0,
+      "calibration_rating": "POOR"
+    }
+  }
+}

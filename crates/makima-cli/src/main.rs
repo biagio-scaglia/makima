@@ -71,6 +71,7 @@ fn print_help() {
     println!("    predict <target>      Genera una previsione probabilistica interpretabile");
     println!("    observe <target> <v>  Registra un'osservazione storica (1/0 o true/false)");
     println!("    outcome <target> <v>  Registra l'esito reale (Ground Truth) e valuta la stima");
+    println!("    forecasts             Mostra il registro del ciclo di vita delle previsioni emesse");
     println!("    targets               Mostra la dashboard di tutti i target monitorati");
     println!("    mail                  Genera il bollettino previsionale Laplace Mail");
     println!("    evaluate              Mostra il report di accuratezza e Brier Skill Score");
@@ -177,13 +178,53 @@ fn handle_mail() {
     println!("\n{mail}\n");
 }
 
-fn handle_predict(target: &str) {
+fn handle_forecasts() {
     let engine = load_engine_from_store();
+    let records = engine.ledger().records();
+
+    println!("\n=========================================================================================================");
+    println!("                                   MAKIMA FORECAST LIFECYCLE LEDGER                                      ");
+    println!("=========================================================================================================");
+    println!("ID    | Target             | Prob   | Window    | Evid | Model              | Status");
+    println!("------+--------------------+--------+-----------+------+--------------------+----------------------------");
+
+    if records.is_empty() {
+        println!("Nessuna previsione registrata nel ledger. Esegui 'makima predict <target>' o 'makima query <frase>'.");
+    } else {
+        for r in records {
+            println!(
+                "{:<5} | {:<18} | {:5.1}% | {:<9} | {:4} | {:<18} | {}",
+                r.id.to_string(),
+                r.target,
+                r.probability.value() * 100.0,
+                r.window_desc,
+                r.evidence_count,
+                r.model_name,
+                r.status
+            );
+        }
+    }
+    println!("=========================================================================================================\n");
+}
+
+fn handle_predict(target: &str) {
+    let mut engine = load_engine_from_store();
     let forecast: Forecast = engine.predict_target(target);
+    let ts = current_unix_timestamp();
+    let id = engine.register_forecast_in_ledger(
+        target,
+        ts,
+        forecast.probability,
+        "unspecified",
+        forecast.evidence_count,
+        "BayesianConjugate",
+    );
+    save_engine_to_store(&engine);
 
     println!("\n============================================================");
     println!("               MAKIMA PROBABILISTIC FORECAST                ");
     println!("============================================================");
+    println!("Forecast ID:          {id}");
     println!("Target:               {}", forecast.target);
     println!(
         "Probabilità Stimata:  {:.2}%  (E[P] = {:.4})",
@@ -210,6 +251,7 @@ fn handle_predict(target: &str) {
         "Evidenze Rilevate:    {} osservazioni storiche",
         forecast.evidence_count
     );
+    println!("Stato nel Ledger:     PENDING (in attesa di esito reale)");
 
     if forecast.evidence_ids.is_empty() {
         println!("Tracciamento Prove:   [Nessuna evidenza - Prior non-informativo]");
@@ -415,6 +457,10 @@ fn main() -> ExitCode {
                 let query_text = args[2..].join(" ");
                 handle_query(&query_text)
             }
+        }
+        "forecasts" | "ledger" => {
+            handle_forecasts();
+            ExitCode::SUCCESS
         }
         "targets" | "list" => {
             handle_targets();

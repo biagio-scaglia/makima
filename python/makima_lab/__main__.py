@@ -199,6 +199,14 @@ def main():
             pipeline = SemanticForecastPipeline()
             res = pipeline.execute(text)
             print("\n" + res.format_report() + "\n")
+        elif subcmd in ("benchmark", "bench", "eval-all"):
+            from experiments.forecasting.run_benchmarks import main as run_benchmark_main
+            run_benchmark_main()
+        elif subcmd in ("ablation", "ablate"):
+            from experiments.forecasting.ablation import AblationRunner
+            res = AblationRunner.run_ablation_study(seed=42)
+            import json
+            print("\n" + json.dumps(res, indent=2) + "\n")
         else:
             interactive_loop()
     else:
