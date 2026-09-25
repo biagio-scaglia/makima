@@ -61,6 +61,8 @@ echo   - outcome ^<target^> ^<v^> : Registra esito reale (Ground Truth)
 echo   - evaluate              : Mostra scorecard e Brier Skill Score
 echo   - poisson ^<lambda^>      : Calcola distribuzione temporale Poisson
 echo   - bernoulli ^<p^>         : Calcola momenti ed Entropia di Shannon
+echo   - sync-git              : Sincronizza tutta la cronologia Git reale nel motore
+echo   - daemon [sec]          : Avvia il daemon in background per il monitoraggio continuo
 echo   - status                : Mostra lo stato del core engine Rust
 echo   - eyes                  : Mostra il ritratto ASCII di Makima
 echo   - lab                   : Avvia la console interattiva Python Lab

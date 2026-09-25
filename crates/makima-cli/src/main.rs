@@ -85,6 +85,9 @@ fn print_help() {
     println!(
         "    bernoulli <p>         Calcola momenti ed Entropia di Shannon per eventi binari\n"
     );
+    println!("COMANDI TELEMETRIA REALE & DAEMON:");
+    println!("    sync-git              Sincronizza cronologia Git reale nel motore Makima");
+    println!("    daemon [sec]          Avvia il daemon in background per il monitoraggio Git continuo\n");
     println!("STRUMENTI & AMBIENTI:");
     println!("    eyes                  Mostra il ritratto ASCII di Makima");
     println!("    lab                   Avvia il laboratorio scientifico interattivo Python");
@@ -528,6 +531,33 @@ fn main() -> ExitCode {
                 Ok(_) => ExitCode::FAILURE,
                 Err(err) => {
                     eprintln!("Errore lettura memoria neurale: {err}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        "sync-git" | "git-sync" => {
+            let mut cmd = std::process::Command::new("python");
+            cmd.env("PYTHONPATH", "python");
+            cmd.args(["-m", "makima_lab", "sync-git"]);
+            match cmd.status() {
+                Ok(status) if status.success() => ExitCode::SUCCESS,
+                Ok(_) => ExitCode::FAILURE,
+                Err(err) => {
+                    eprintln!("Errore esecuzione sincronizzazione Git: {err}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        "daemon" | "watch" => {
+            let interval = args.get(2).map(|s| s.as_str()).unwrap_or("15");
+            let mut cmd = std::process::Command::new("python");
+            cmd.env("PYTHONPATH", "python");
+            cmd.args(["-m", "makima_lab", "daemon", interval]);
+            match cmd.status() {
+                Ok(status) if status.success() => ExitCode::SUCCESS,
+                Ok(_) => ExitCode::FAILURE,
+                Err(err) => {
+                    eprintln!("Errore esecuzione Daemon: {err}");
                     ExitCode::FAILURE
                 }
             }

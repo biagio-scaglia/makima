@@ -176,6 +176,24 @@ def main():
             handle_neural_inspection(text)
         elif subcmd == "memory":
             handle_memory_status()
+        elif subcmd in ("sync-git", "git-sync"):
+            from makima_lab.git_observer import GitObserver
+            obs = GitObserver(".")
+            res = obs.sync_history(100)
+            print("\n===================================================")
+            print("        MAKIMA REAL GIT TELEMETRY SYNC             ")
+            print("===================================================")
+            print(f"Commit sincronizzati:     {res['synced_commits']}")
+            print(f"Suddivisione categorie:   {res['categories']}")
+            print(f"Tasso empirico Poisson:   {res['commit_rate_per_day']:.2f} commit/giorno")
+            print(f"Arco temporale analizzato: {res['span_days']:.1f} giorni")
+            print(f"Ultimo commit esaminato:  {res['latest_commit']}")
+            print(f"Memoria neurale utente:   {res['memory_norm']:.4f}")
+            print("===================================================\n")
+        elif subcmd == "daemon":
+            from makima_lab.git_observer import run_daemon_loop
+            interval = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 15
+            run_daemon_loop(".", poll_interval=interval)
         elif subcmd in ("query", "nlp") and len(sys.argv) > 2:
             text = " ".join(sys.argv[2:])
             pipeline = SemanticForecastPipeline()

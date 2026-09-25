@@ -57,8 +57,8 @@ class MakimaNeuralEngine:
         learning_rate: float = 1e-3,
     ) -> None:
         self.device = torch.device(device)
-        self.tokenizer = MakimaTokenizer()
-        self.model = MakimaMindNet(vocab_size=max(self.tokenizer.vocab_size + 50, 256))
+        self.tokenizer = MakimaTokenizer(max_vocab_size=2048)
+        self.model = MakimaMindNet(vocab_size=2048)
         self.model.to(self.device)
 
         self.optimizer = optim.AdamW(self.model.parameters(), lr=learning_rate, weight_decay=1e-4)
@@ -181,6 +181,12 @@ class MakimaNeuralEngine:
             return False
         try:
             checkpoint = torch.load(load_path, map_location=self.device)
+            # Check if embedding dimension matches
+            saved_emb_shape = checkpoint["model_state_dict"]["embedding.weight"].shape
+            curr_emb_shape = self.model.embedding.weight.shape
+            if saved_emb_shape != curr_emb_shape:
+                # Vocab size changed; re-initialize with current architecture
+                return False
             self.model.load_state_dict(checkpoint["model_state_dict"])
             if "optimizer_state_dict" in checkpoint:
                 self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
