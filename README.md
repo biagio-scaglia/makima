@@ -1,7 +1,7 @@
 # Makima
 
 <p align="center">
-  <img src="https://preview.redd.it/makima-eyes-reflect-what-we-saw-about-her-personality-the-v0-mmu71drhyu2g1.png?auto=webp&s=bd5f8ebc1bb092f0d20e1f67eabe660dceb02956" alt="Makima" width="480" />
+  <img src="https://giffiles.alphacoders.com/222/222812.gif" alt="Makima" width="480" />
 </p>
 
 > **An interpretable probabilistic forecasting system.**
