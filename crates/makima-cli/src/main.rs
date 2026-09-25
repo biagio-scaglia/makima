@@ -52,6 +52,8 @@ fn print_help() {
     println!("    predict <target>      Genera una previsione probabilistica interpretabile");
     println!("    observe <target> <v>  Registra un'osservazione storica (1/0 o true/false)");
     println!("    outcome <target> <v>  Registra l'esito reale (Ground Truth) e valuta la stima");
+    println!("    targets               Mostra la dashboard di tutti i target monitorati");
+    println!("    mail                  Genera il bollettino previsionale Laplace Mail");
     println!("    evaluate              Mostra il report di accuratezza e Brier Skill Score");
     println!("    status                Mostra lo stato diagnostico del motore e del sistema\n");
     println!("COMANDI MATEMATICI & PROBABILISTICI:");
@@ -101,9 +103,55 @@ fn handle_status(animated: bool) {
     println!("Stato Operativo:     {}", status.state);
     println!("Osservazioni Totali: {}", status.total_observations);
     println!("Esiti Valutati:      {}", status.total_outcomes);
+    println!("Target Tracciati:    {}", engine.tracked_targets().len());
     println!("Storage Persistente: .makima/store.json");
     println!("Architettura:        Ibrida (Rust Core + Python Lab)");
     println!("========================================");
+}
+
+fn handle_targets() {
+    let engine = load_engine_from_store();
+    let summaries = engine.target_summaries();
+
+    println!("\n=========================================================================================");
+    println!(
+        "                           MAKIMA MULTI-TARGET DASHBOARD                                 "
+    );
+    println!(
+        "========================================================================================="
+    );
+    println!(
+        "Target             | Evidenze (S/F) | E[P] Prob | Varianza | Entropia | Rate Stimato"
+    );
+    println!(
+        "-------------------+----------------+-----------+----------+----------+-----------------"
+    );
+
+    if summaries.is_empty() {
+        println!("Nessun target registrato nelle evidenze. Usa 'makima observe <target> <1|0>'.");
+    } else {
+        for s in &summaries {
+            println!(
+                "{:<18} | {:2} ({:2}/{:2})    | {:5.1}%    | {:.6} | {:.4} bit| ~{:.2} ev/giorno",
+                s.target,
+                s.observations_count,
+                s.success_count,
+                s.failure_count,
+                s.probability.value() * 100.0,
+                s.uncertainty_variance,
+                s.entropy_bits,
+                s.estimated_daily_rate
+            );
+        }
+    }
+    println!("=========================================================================================\n");
+}
+
+fn handle_mail() {
+    let engine = load_engine_from_store();
+    let ts = current_unix_timestamp();
+    let mail = engine.generate_laplace_mail(ts);
+    println!("\n{mail}\n");
 }
 
 fn handle_predict(target: &str) {
@@ -344,6 +392,14 @@ fn main() -> ExitCode {
                 let query_text = args[2..].join(" ");
                 handle_query(&query_text)
             }
+        }
+        "targets" | "list" => {
+            handle_targets();
+            ExitCode::SUCCESS
+        }
+        "mail" | "bulletin" | "laplace" => {
+            handle_mail();
+            ExitCode::SUCCESS
         }
         "status" => {
             let animated = args.iter().any(|arg| arg == "--anim");

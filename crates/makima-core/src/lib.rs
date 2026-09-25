@@ -7,11 +7,13 @@
 //! l'esecuzione di simulazioni previsionali e la valutazione della calibrazione.
 pub mod eval;
 pub mod forecast;
+pub mod laplace;
 pub mod prob;
 pub mod storage;
 
 pub use eval::{CalibrationBin, EvaluationReport, Evaluator, Outcome, Scoring};
 pub use forecast::{Forecast, ForecastError};
+pub use laplace::{LaplaceMail, TargetSummary};
 pub use prob::{
     Bernoulli, BetaDistribution, ContinuousDistribution, DiscreteDistribution, Distribution,
     PoissonDistribution, ProbError, Probability,
@@ -182,7 +184,78 @@ impl MakimaEngine {
         Forecast::from_observations(target, &self.observations, prior)
     }
 
-    /// Genera il report di valutazione delle performance previsionali (Brier Score, Skill Score).
+    /// Restituisce l'elenco ordinato e univoco di tutti i target tracciati nelle osservazioni.
+    #[must_use]
+    pub fn tracked_targets(&self) -> Vec<String> {
+        let mut set = std::collections::BTreeSet::new();
+        for obs in &self.observations {
+            set.insert(obs.target.clone());
+        }
+        set.into_iter().collect()
+    }
+
+    /// Calcola un riepilogo statistico e previsionale per un singolo target.
+    #[must_use]
+    pub fn summarize_target(&self, target: &str) -> TargetSummary {
+        let forecast = self.predict_target(target);
+        let mut successes = 0;
+        let mut failures = 0;
+        let mut last_ts = 0;
+        let mut timestamps = Vec::new();
+
+        for obs in &self.observations {
+            if obs.target == target {
+                if obs.value >= 0.5 {
+                    successes += 1;
+                } else {
+                    failures += 1;
+                }
+                if obs.timestamp_sec > last_ts {
+                    last_ts = obs.timestamp_sec;
+                }
+                timestamps.push(obs.timestamp_sec);
+            }
+        }
+
+        let total = successes + failures;
+        let daily_rate = if timestamps.len() >= 2 {
+            let min_ts = *timestamps.iter().min().unwrap_or(&0);
+            let max_ts = *timestamps.iter().max().unwrap_or(&0);
+            let span_days = ((max_ts - min_ts) as f64 / 86400.0).max(1.0);
+            timestamps.len() as f64 / span_days
+        } else {
+            (total as f64 / 30.0).max(0.05)
+        };
+
+        TargetSummary {
+            target: target.to_string(),
+            observations_count: total,
+            success_count: successes,
+            failure_count: failures,
+            probability: forecast.probability,
+            uncertainty_variance: forecast.uncertainty_variance,
+            entropy_bits: forecast.entropy_bits,
+            last_timestamp_sec: last_ts,
+            estimated_daily_rate: daily_rate,
+        }
+    }
+
+    /// Restituisce la lista di riassunti previsionali per tutti i target tracciati.
+    #[must_use]
+    pub fn target_summaries(&self) -> Vec<TargetSummary> {
+        self.tracked_targets()
+            .iter()
+            .map(|t| self.summarize_target(t))
+            .collect()
+    }
+
+    /// Genera un bollettino previsionale consolidato Laplace Mail.
+    #[must_use]
+    pub fn generate_laplace_mail(&self, timestamp_sec: i64) -> LaplaceMail {
+        LaplaceMail::generate(self, timestamp_sec)
+    }
+
+    /// Genera il report di valutazione delle performance previsionali (Brier Score, Skill Score, ECE).
     #[must_use]
     pub fn evaluate_performance(&self) -> Option<EvaluationReport> {
         self.evaluator.evaluate()
@@ -250,5 +323,25 @@ mod tests {
     fn test_engine_state_display() {
         assert_eq!(EngineState::Ready.to_string(), "ready");
         assert_eq!(EngineState::Calibrating.to_string(), "calibrating");
+    }
+
+    #[test]
+    fn test_engine_multi_target_and_laplace_mail() {
+        let mut engine = MakimaEngine::new();
+        engine.record_binary("framework_release", true, 1_700_000_000);
+        engine.record_binary("framework_release", true, 1_700_086_400);
+        engine.record_binary("daily_build", true, 1_700_000_000);
+
+        let targets = engine.tracked_targets();
+        assert_eq!(targets.len(), 2);
+        assert_eq!(targets[0], "daily_build");
+        assert_eq!(targets[1], "framework_release");
+
+        let summaries = engine.target_summaries();
+        assert_eq!(summaries.len(), 2);
+
+        let mail = engine.generate_laplace_mail(1_700_200_000);
+        assert_eq!(mail.all_summaries.len(), 2);
+        assert!(!mail.issue_id.is_empty());
     }
 }

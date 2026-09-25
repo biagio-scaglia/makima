@@ -87,8 +87,8 @@ Makima segue un approccio rigoroso e trasparente:
 - [x] **Fase 8**: NLP Semantic Parsing (`SemanticQueryParser`, `ForecastQuery`, `TemporalWindow`) e Pipeline semantica NL.
 - [x] **Fase 9**: Persistenza dello stato su disco ([`.makima/store.json`](.makima/store.json)) condiviso tra Rust e Python.
 - [x] **Fase 10**: Calibrazione empirica (*Expected Calibration Error*, *MCE*, *Reliability Diagrams*).
-- [ ] **Fase 11**: Multi-Target Dashboard (`makima targets`) e monitoraggio parallelo.
-- [ ] **Fase 12**: Bollettino previsionale automatico (*Laplace Mail Bulletin*).
+- [x] **Fase 11**: Multi-Target Dashboard (`makima targets`) e monitoraggio parallelo.
+- [x] **Fase 12**: Bollettino previsionale automatico (*Laplace Mail Bulletin* `makima mail`).
 
 ---
 

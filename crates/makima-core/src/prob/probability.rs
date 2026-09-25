@@ -1,10 +1,11 @@
 //! Tipo di dato tipizzato e sicuro per rappresentare valori di probabilità in [0.0, 1.0].
 
 use super::error::ProbError;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Rappresenta un valore di probabilità matematicamente valido, garantito nell'intervallo [0.0, 1.0].
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Probability(f64);
 
 impl Probability {

@@ -50,6 +50,8 @@ echo               CONSOLE INTERATTIVA MAKIMA
 echo ===================================================
 echo Comandi disponibili:
 echo   - query ^<frase^>          : Analizza semantica NL ed estrae ForecastQuery
+echo   - targets               : Mostra dashboard di tutti i target monitorati
+echo   - mail                  : Genera il bollettino previsionale Laplace Mail
 echo   - predict ^<target^>      : Calcola previsione probabilistica
 echo   - observe ^<target^> ^<v^> : Registra nuova evidenza storica (1/0)
 echo   - outcome ^<target^> ^<v^> : Registra esito reale (Ground Truth)
