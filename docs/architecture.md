@@ -206,11 +206,12 @@ Quando Makima riceve una richiesta di previsione:
 
 ---
 
-## 9. State Management
+## 9. State Management & Storage Layer
 
-- **Determinismo**: lo stato interno è una funzione esplicita dello storico delle osservazioni accumulate.
+- **Determinismo ed Event Sourcing**: lo stato interno è una funzione esplicita dello storico delle osservazioni accumulate. Il sistema implementa un pattern ad **Event Sourcing** (`event_log`) in cui ogni evidenza o esito registrato è immutabile e tracciato temporalmente.
 - **Transizioni di Stato**: le transizioni dell'istanza (es. da `Ready` a `Calibrating`) avvengono solo tramite metodi controllati di `MakimaEngine`.
-- **Thread Safety**: il nucleo è progettato per supportare la futura concorrenza (`Send + Sync`) senza lock globali degradanti.
+- **Storage SQLite WAL Integrato**: la persistenza locale ad alte prestazioni avviene mediante SQLite incorporato con modalità **WAL (Write-Ahead Logging)** in [`.makima/makima.db`](.makima/makima.db), con sincronizzazione automatica bidirezionale verso file JSON leggibili [`.makima/store.json`](.makima/store.json).
+- **Concorrenza Rust & Python**: la modalità WAL garantisce letture concorrenti non bloccanti tra il runtime compilato `makima-cli` e il laboratorio di ricerca `makima_lab`.
 
 ---
 

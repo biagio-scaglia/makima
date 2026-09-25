@@ -90,6 +90,12 @@
       "target": "api_gateway",
       "timestamp_sec": 1700259200,
       "value": 1.0
+    },
+    {
+      "id": 16,
+      "target": "microservice_alpha",
+      "timestamp_sec": 1790334228,
+      "value": 1.0
     }
   ],
   "outcomes": [

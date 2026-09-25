@@ -1,31 +1,135 @@
-"""Gestione della persistenza e caricamento dati condivisi (.makima/store.json)."""
+"""Gestione della persistenza e caricamento dati condivisi (.makima/makima.db SQLite e store.json)."""
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
 
+DEFAULT_DB_RELATIVE_PATH = Path(".makima") / "makima.db"
 DEFAULT_STORE_RELATIVE_PATH = Path(".makima") / "store.json"
 
 
+def get_default_db_path() -> Path:
+    """Restituisce il percorso del database SQLite."""
+    cwd = Path.cwd()
+    candidate = cwd / DEFAULT_DB_RELATIVE_PATH
+    if candidate.exists():
+        return candidate
+    parent_candidate = cwd.parent / DEFAULT_DB_RELATIVE_PATH
+    if parent_candidate.exists():
+        return parent_candidate
+    return candidate
+
+
 def get_default_store_path() -> Path:
-    """Restituisce il percorso assoluto o relativo al workspace del file di storage."""
-    # Controlla la cartella corrente o sale di un livello se eseguito da python/ o tests/
+    """Restituisce il percorso del file JSON di fallback."""
     cwd = Path.cwd()
     candidate = cwd / DEFAULT_STORE_RELATIVE_PATH
     if candidate.exists():
         return candidate
-    
     parent_candidate = cwd.parent / DEFAULT_STORE_RELATIVE_PATH
     if parent_candidate.exists():
         return parent_candidate
-    
     return candidate
 
 
 def load_store(path: Path | str | None = None) -> dict[str, Any]:
-    """Carica lo store JSON da disco, gestendo i fallimenti in modo resiliente."""
-    store_path = Path(path) if path else get_default_store_path()
+    """Carica i dati dallo storage SQLite (.makima/makima.db) o JSON con fallback trasparente."""
+    if path is not None:
+        p = Path(path)
+        if not p.exists():
+            return {
+                "version": "0.1.0",
+                "observations": [],
+                "outcomes": [],
+            }
+        if str(path).endswith(".db"):
+            try:
+                conn = sqlite3.connect(p)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute("SELECT id, target, value, timestamp_sec FROM observations ORDER BY id ASC")
+                obs_rows = cursor.fetchall()
+                observations = [
+                    {
+                        "id": row["id"],
+                        "target": row["target"],
+                        "value": float(row["value"]),
+                        "timestamp_sec": int(row["timestamp_sec"]),
+                    }
+                    for row in obs_rows
+                ]
+
+                cursor.execute("SELECT target, occurred, timestamp_sec FROM outcomes ORDER BY id ASC")
+                out_rows = cursor.fetchall()
+                outcomes = [
+                    {
+                        "target": row["target"],
+                        "occurred": bool(row["occurred"]),
+                        "timestamp_sec": int(row["timestamp_sec"]),
+                    }
+                    for row in out_rows
+                ]
+
+                conn.close()
+                return {
+                    "version": "0.1.0",
+                    "observations": observations,
+                    "outcomes": outcomes,
+                }
+            except Exception:
+                return {"version": "0.1.0", "observations": [], "outcomes": []}
+        else:
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                return {"version": "0.1.0", "observations": [], "outcomes": []}
+
+    # Se path è None, prova prima il database di default SQLite
+    db_path = get_default_db_path()
+    if db_path.exists():
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT id, target, value, timestamp_sec FROM observations ORDER BY id ASC")
+            obs_rows = cursor.fetchall()
+            observations = [
+                {
+                    "id": row["id"],
+                    "target": row["target"],
+                    "value": float(row["value"]),
+                    "timestamp_sec": int(row["timestamp_sec"]),
+                }
+                for row in obs_rows
+            ]
+
+            cursor.execute("SELECT target, occurred, timestamp_sec FROM outcomes ORDER BY id ASC")
+            out_rows = cursor.fetchall()
+            outcomes = [
+                {
+                    "target": row["target"],
+                    "occurred": bool(row["occurred"]),
+                    "timestamp_sec": int(row["timestamp_sec"]),
+                }
+                for row in out_rows
+            ]
+
+            conn.close()
+            return {
+                "version": "0.1.0",
+                "observations": observations,
+                "outcomes": outcomes,
+            }
+        except Exception:
+            pass
+
+    # Fallback finale sul file JSON di default
+    store_path = get_default_store_path()
     if not store_path.exists():
         return {
             "version": "0.1.0",

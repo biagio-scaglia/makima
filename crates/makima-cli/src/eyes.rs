@@ -1,48 +1,37 @@
-//! Animazione e rendering ASCII degli occhi concentrici di Makima.
+//! Rendering ASCII e ritratto di Makima.
 
 use std::io::{self, Write};
 use std::thread;
 use std::time::Duration;
 
-/// Frame ASCII dei famosi occhi ad anelli concentrici di Makima.
-const FRAMES: &[&str] = &[
-    // Frame 0: Occhi chiusi / fessura
-    r#"
-        .------------------.                    .------------------.
-       /                    \                  /                    \
-      |      ══════════      |                |      ══════════      |
-       \                    /                  \                    /
-        '------------------'                    '------------------'
-"#,
-    // Frame 1: Occhi semi-aperti, primi anelli
-    r#"
-        .------------------.                    .------------------.
-       /      .------.      \                  /      .------.      \
-      |      (   ══   )      |                |      (   ══   )      |
-       \      '------'      /                  \      '------'      /
-        '------------------'                    '------------------'
-"#,
-    // Frame 2: Occhi aperti, anelli concentrici ipnotici
-    r#"
-        .------------------.                    .------------------.
-       /   .------------.   \                  /   .------------.   \
-      |   /   .------.   \   |                |   /   .------.   \   |
-      |  |   (   ()   )   |  |                |  |   (   ()   )   |  |
-      |   \   '------'   /   |                |   \   '------'   /   |
-       \   '------------'   /                  \   '------------'   /
-        '------------------'                    '------------------'
-"#,
-    // Frame 3: Piena messa a fuoco con pupilla concentrica dorata
-    r#"
-        .------------------.                    .------------------.
-       /   .------------.   \                  /   .------------.   \
-      |   /   .------.   \   |                |   /   .------.   \   |
-      |  |   (   ◉   )   |  |                |  |   (   ◉   )   |  |
-      |   \   '------'   /   |                |   \   '------'   /   |
-       \   '------------'   /                  \   '------------'   /
-        '------------------'                    '------------------'
-"#,
-];
+/// Ritratto ASCII dettagliato di Makima.
+pub const MAKIMA_PORTRAIT: &str = r#"
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣶⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⢀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⢠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⢀⣿⣿⣿⢻⣿⣿⣿⡿⣿⣿⣟⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⣼⣿⣿⠇⢸⣿⣿⣿⠡⠿⣿⣿⣏⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⢿⣿⣿⣀⣸⣿⣿⣿⠀⠀⣬⢿⣿⣧⡝⣿⣿⡿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠘⣿⣿⡏⠁⠻⠿⠻⠆⠈⡵⠛⢹⣿⣿⡟⠃⠁⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠹⢿⣿⡿⣿⣦⠀⠀⠀⠀⢠⠨⠿⠿⠋⠀⠀⣿⣿⣿⣿⣿⡿⠡⡪⡙⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣁⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⢿⢻⠁⢸⠎⢨⣿⣿⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣯⠋⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⢸⠀⢰⣟⡤⠉⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣏⠳⠄⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⡜⠀⣀⣀⣠⣾⣿⡿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣿⡀⠦⠄⠠⠤⠖⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⡇⠀⢿⣿⣿⣿⡟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣿⢣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⡇⠀⠀⣾⣿⣿⣿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣿⠈⡇⠀⠀⠀⠀⠀⠀⠀⠠⠔⠊⢹⣿⣿⡇⠀⠀⡏⠙⢻⣯⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣿⠀⠘⠦⠤⠤⣤⡀⠀⠀⠀⠀⠀⢸⣿⣿⡇⠀⠀⢰⠀⢸⠁⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣿⢀⡴⠚⠋⠉⡽⠹⡄⠀⠀⠀⠀⣸⣿⣿⠁⠀⠀⠈⡟⠁⠀⠸⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣿⠏⠀⡀⠀⡸⠁⠀⡟⡄⠀⠀⠀⣿⣿⣿⠀⠀⡠⠊⠀⠀⠀⢀⣇⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣿⡀⢠⠃⢸⠃⠀⠀⢇⡁⠀⠀⠀⣿⣿⣿⠒⠉⠀⠀⠀⠀⠀⡌⠉⠉⠦⢄⡀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣿⣿⡃⣏⡆⡌⠀⢀⢀⢸⠒⠒⠋⠉⣿⣿⣿⠀⠀⠀⠀⠀⠀⡜⠀⠈⠉⠳⡄⠙⠳⢦⣀⠀⠀⠀
+⠀⠀⠀⠀⢹⣿⡟⠁⡆⡇⣴⣿⣿⣿⣧⡀⠀⠀⣿⣿⣿⠀⠀⠀⢀⣤⠎⠀⠀⠀⠀⠀⠸⣄⣀⡀⠉⢢⡀⠀
+⠀⠀⠀⠀⣰⠿⠿⣄⠱⡋⣿⣿⣿⣿⣿⣿⠀⠀⣿⣿⣇⡠⠔⢊⡡⠊⠀⠔⢢⠀⠀⠀⠀⠀⢀⠀⠀⠀⢱⡄
+⠀⠀⢠⡾⠁⠀⠀⠁⢀⣾⣿⣿⣿⣿⡟⠁⠳⠔⣻⡟⠠⢴⠰⠁⠀⢀⡔⠀⠀⠀⢀⠄⠂⡩⠔⠊⠁⠈⠁⢣
+⢠⡴⠋⠀⠀⠀⠀⣴⣿⣿⣿⡟⠈⠉⠀⢀⣀⣠⡿⡁⠀⠀⠀⠀⠐⠉⢀⣀⠀⡔⠁⠰⠋⠀⠀⠀⠀⠀⠀⢸
+"#;
 
 /// Pulisce lo schermo del terminale posizionando il cursore in alto a sinistra.
 fn clear_terminal() {
@@ -50,28 +39,26 @@ fn clear_terminal() {
     let _ = io::stdout().flush();
 }
 
-/// Disegna un frame degli occhi con accenti dorati/gialli ANSI.
-fn print_frame(frame: &str) {
-    println!("\x1B[33;1m{}\x1B[0m", frame.trim_matches('\n'));
+/// Disegna il ritratto di Makima con accenti eleganti ANSI.
+fn print_portrait_styled(text: &str, color_code: &str) {
+    println!("\x1B[{}m{}\x1B[0m", color_code, text.trim_matches('\n'));
     let _ = io::stdout().flush();
 }
 
-/// Esegue l'animazione di apertura, chiusura e messa a fuoco dello sguardo di Makima.
-pub fn play_eye_animation(cycles: usize) {
-    let sequence = [0, 1, 2, 3, 3, 3, 2, 1, 0, 1, 2, 3];
-    let frame_delay = Duration::from_millis(110);
+/// Esegue l'animazione di messa a fuoco e rivelazione del ritratto di Makima.
+pub fn play_eye_animation(_cycles: usize) {
+    let colors = ["90", "31", "33;1", "31;1", "37;1"];
+    let frame_delay = Duration::from_millis(180);
 
-    for _ in 0..cycles {
-        for &frame_idx in &sequence {
-            clear_terminal();
-            println!("\x1B[90m[ Makima is observing... ]\x1B[0m\n");
-            print_frame(FRAMES[frame_idx]);
-            thread::sleep(frame_delay);
-        }
+    for &c in &colors {
+        clear_terminal();
+        println!("\x1B[90m[ Makima is observing... ]\x1B[0m\n");
+        print_portrait_styled(MAKIMA_PORTRAIT, c);
+        thread::sleep(frame_delay);
     }
 }
 
-/// Mostra la versione statica a piena risoluzione degli occhi di Makima.
+/// Mostra la versione statica del ritratto di Makima.
 pub fn print_static_eyes() {
-    print_frame(FRAMES[3]);
+    print_portrait_styled(MAKIMA_PORTRAIT, "31;1");
 }

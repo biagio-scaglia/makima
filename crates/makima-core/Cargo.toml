@@ -10,3 +10,4 @@ description = "Core probabilistic forecasting engine and mathematical foundation
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+rusqlite = { workspace = true }

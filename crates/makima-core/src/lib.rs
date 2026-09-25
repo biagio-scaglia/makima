@@ -18,7 +18,7 @@ pub use prob::{
     Bernoulli, BetaDistribution, ContinuousDistribution, DiscreteDistribution, Distribution,
     PoissonDistribution, ProbError, Probability,
 };
-pub use storage::MakimaStore;
+pub use storage::{MakimaDb, MakimaStore};
 
 use serde::{Deserialize, Serialize};
 use std::fmt;

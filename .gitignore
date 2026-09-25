@@ -44,3 +44,9 @@ env/
 *.swo
 .DS_Store
 Thumbs.db
+
+# Database & SQLite WAL
+*.db
+*.db-wal
+*.db-shm
+

@@ -3,7 +3,7 @@
 mod eyes;
 
 use makima_core::{
-    Bernoulli, DiscreteDistribution, Distribution, Forecast, MakimaEngine, MakimaStore,
+    Bernoulli, DiscreteDistribution, Distribution, Forecast, MakimaDb, MakimaEngine, MakimaStore,
     PoissonDistribution, Scoring,
 };
 use std::env;
@@ -19,14 +19,24 @@ fn current_unix_timestamp() -> i64 {
 
 fn load_engine_from_store() -> MakimaEngine {
     let mut engine = MakimaEngine::new();
+    let db_path = MakimaDb::default_path();
     let store_path = MakimaStore::default_path();
-    match MakimaStore::load_or_init(&store_path) {
-        Ok(store) => {
-            store.apply_to_engine(&mut engine);
+
+    // 1. Inizializza o carica lo store JSON iniziale se necessario
+    let store =
+        MakimaStore::load_or_init(&store_path).unwrap_or_else(|_| MakimaStore::sample_store());
+
+    // 2. Apri e sincronizza con SQLite WAL
+    match MakimaDb::open(&db_path) {
+        Ok(db) => {
+            let _ = db.sync_from_store(&store);
+            if let Err(err) = db.load_into_engine(&mut engine) {
+                eprintln!("[ATTENZIONE] Errore lettura SQLite ({err}). Caricamento da JSON.");
+                store.apply_to_engine(&mut engine);
+            }
         }
         Err(err) => {
-            eprintln!("[ATTENZIONE] Impossibile caricare .makima/store.json ({err}). Utilizzo dati in-memory.");
-            let store = MakimaStore::sample_store();
+            eprintln!("[ATTENZIONE] Impossibile aprire SQLite DB ({err}). Caricamento da JSON.");
             store.apply_to_engine(&mut engine);
         }
     }
@@ -38,6 +48,11 @@ fn save_engine_to_store(engine: &MakimaEngine) {
     let store = MakimaStore::from_engine(engine);
     if let Err(err) = store.save(&store_path) {
         eprintln!("[ATTENZIONE] Impossibile salvare lo stato in .makima/store.json: {err}");
+    }
+
+    let db_path = MakimaDb::default_path();
+    if let Ok(db) = MakimaDb::open(&db_path) {
+        let _ = db.sync_from_store(&store);
     }
 }
 
