@@ -96,6 +96,25 @@ class TestNLPParser(unittest.TestCase):
         self.assertIn("framework_release", summary)
         self.assertIn("Valida per Core:  Si", summary)
 
+    def test_rilasceremo_nuova_feature_questa_settimana(self):
+        query = "rilasceremo la nuova feature questa settimana?"
+        parsed = self.parser.parse(query)
+
+        self.assertEqual(parsed.intent, Intent.RELEASE_PREDICTION)
+        self.assertEqual(parsed.target, "git:feature_ratio")
+        self.assertEqual(parsed.temporal_window.relation, TemporalRelation.THIS_WEEK)
+        self.assertTrue(parsed.is_valid_forecast)
+
+    def test_unit_tests_discipline_query(self):
+        query = "riusciremo a completare i test unitari entro 3 giorni?"
+        parsed = self.parser.parse(query)
+
+        self.assertIn(parsed.intent, (Intent.FORECAST, Intent.RELEASE_PREDICTION))
+        self.assertEqual(parsed.target, "git:test_discipline")
+        self.assertEqual(parsed.temporal_window.relation, TemporalRelation.WITHIN_DAYS)
+        self.assertEqual(parsed.temporal_window.days, 3)
+        self.assertTrue(parsed.is_valid_forecast)
+
     def test_pipeline_execution_valid_query(self):
         res = self.pipeline.execute("Qual è la probabilità che rilasci framework entro dicembre?")
         self.assertTrue(res.query.is_valid_forecast)
@@ -103,6 +122,14 @@ class TestNLPParser(unittest.TestCase):
         self.assertIsNotNone(res.temporal_probability)
         self.assertGreater(res.posterior.mean, 0.5)
         self.assertIn("MAKIMA SEMANTIC FORECAST PIPELINE", res.format_report())
+
+    def test_pipeline_execution_real_feature_query(self):
+        res = self.pipeline.execute("rilasceremo la nuova feature questa settimana?")
+        self.assertTrue(res.query.is_valid_forecast)
+        self.assertEqual(res.query.target, "git:feature_ratio")
+        self.assertIsNotNone(res.posterior)
+        self.assertIsNotNone(res.temporal_probability)
+        self.assertIn("git:feature_ratio", res.format_report())
 
     def test_pipeline_execution_rejected_query(self):
         res = self.pipeline.execute("Quanto è bello il mio framework?")
