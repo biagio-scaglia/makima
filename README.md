@@ -1,5 +1,9 @@
 # Makima
 
+<p align="center">
+  <img src="https://preview.redd.it/makima-eyes-reflect-what-we-saw-about-her-personality-the-v0-mmu71drhyu2g1.png?auto=webp&s=bd5f8ebc1bb092f0d20e1f67eabe660dceb02956" alt="Makima" width="480" />
+</p>
+
 > **An interpretable probabilistic forecasting system.**
 
 Makima è un sistema di previsione probabilistica e quantificazione dell'incertezza, ispirato concettualmente alla *Laplace Mail* di *Shin Megami Tensei: Devil Survivor*.
