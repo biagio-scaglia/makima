@@ -8,10 +8,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "python"))
 
 from makima_lab.nlp import (
-    ForecastQuery,
-    Intent,
     SemanticForecastPipeline,
     SemanticQueryParser,
+)
+from makima_lab.nlp.models import (
+    ForecastQuery,
+    Intent,
     TemporalRelation,
     TemporalWindow,
 )

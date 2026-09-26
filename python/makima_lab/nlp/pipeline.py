@@ -1,8 +1,10 @@
 """Pipeline semantica end-to-end per la risoluzione e il calcolo probabilistico da NL."""
 
+from __future__ import annotations
 import math
 import sys
 from dataclasses import dataclass
+from typing import Optional
 
 if sys.platform == "win32":
     try:
@@ -12,7 +14,10 @@ if sys.platform == "win32":
         pass
 
 from makima_lab.distributions import Bernoulli, BetaDistribution, PoissonDistribution
-from makima_lab.nlp.models import ForecastQuery, Intent, TemporalRelation
+from makima_lab.nlp.models import ForecastQuery, Intent as LegacyIntent, TemporalRelation as LegacyTemporalRelation
+from makima_lab.nlp.schemas.intent import Intent
+from makima_lab.nlp.schemas.temporal import TemporalRelation, TemporalWindow
+from makima_lab.nlp.schemas.structured_intent import StructuredIntent
 from makima_lab.nlp.parser import SemanticQueryParser
 from makima_lab.storage import compute_knowledge_base_from_store, load_store
 
@@ -55,6 +60,24 @@ DEFAULT_KNOWLEDGE_BASE = {
         "historical_days": 45,
         "rate_per_day": 4.0 / 45.0,
     },
+    "git:commit_frequency": {
+        "successes": 24,
+        "failures": 1,
+        "historical_days": 14,
+        "rate_per_day": 24.0 / 14.0,
+    },
+    "git:bugfix_ratio": {
+        "successes": 9,
+        "failures": 2,
+        "historical_days": 14,
+        "rate_per_day": 9.0 / 14.0,
+    },
+    "git:chore_ratio": {
+        "successes": 8,
+        "failures": 1,
+        "historical_days": 14,
+        "rate_per_day": 8.0 / 14.0,
+    },
 }
 
 
@@ -66,6 +89,7 @@ class SemanticForecastResult:
     temporal_probability: float | None
     entropy_bits: float | None
     explanation: str
+    structured_intent: StructuredIntent | None = None
 
     def format_report(self) -> str:
         """Formatta il report completo per l'output su console."""
@@ -123,21 +147,24 @@ class SemanticForecastPipeline:
             merged_kb.update(loaded_kb)
             self.knowledge_base = merged_kb
 
-    def execute(self, text: str) -> SemanticForecastResult:
-        """Esegue l'intero flusso di comprensione ed elaborazione matematica."""
+    def execute_structured(self, text: str) -> tuple[StructuredIntent, SemanticForecastResult]:
+        """Elabora la query producendo lo StructuredIntent validato e il calcolo probabilistico."""
         available_targets = list(self.knowledge_base.keys())
-        query = self.parser.parse(text, available_targets=available_targets)
+        struct = self.parser.parse_structured(text, available_targets=available_targets)
+        legacy_query = self.parser.parse(text, available_targets=available_targets)
 
-        if not query.is_valid_forecast:
-            return SemanticForecastResult(
-                query=query,
+        if not struct.is_valid_for_core or struct.target is None:
+            res = SemanticForecastResult(
+                query=legacy_query,
                 posterior=None,
                 temporal_probability=None,
                 entropy_bits=None,
-                explanation="La richiesta non contiene un intento previsionale valido o un target riconoscibile.",
+                explanation="; ".join(struct.validation_notes) or "Richiesta non valida per il core.",
+                structured_intent=struct,
             )
+            return struct, res
 
-        target = query.target or ("git:feature_ratio" if "git:feature_ratio" in self.knowledge_base else "framework_release")
+        target = struct.target
         evidence = self.knowledge_base.get(
             target,
             {"successes": 1, "failures": 1, "historical_days": 30, "rate_per_day": 1.0 / 30.0},
@@ -152,20 +179,23 @@ class SemanticForecastPipeline:
         bernoulli = Bernoulli(posterior.mean)
         entropy = bernoulli.entropy_bits
 
-        # Ragionamento temporale analitico se specificato nella query
+        # Calcolo probabilistico temporale analitico
         temporal_prob = None
         rate = evidence.get("rate_per_day", 0.1)
+        rel = struct.temporal_window.relation
 
-        rel = query.temporal_window.relation
-        if rel == TemporalRelation.WITHIN_DAYS and query.temporal_window.days:
-            # Modello Poisson / Processo di Poisson P(X >= 1 in T giorni) = 1 - exp(-rate * T)
-            days = query.temporal_window.days
+        if rel == TemporalRelation.RELATIVE_INTERVAL and struct.temporal_window.days:
+            days = struct.temporal_window.days
             temporal_prob = 1.0 - math.exp(-rate * days)
-        elif rel == TemporalRelation.THIS_WEEK:
+        elif rel == TemporalRelation.RELATIVE_INTERVAL:
             temporal_prob = 1.0 - math.exp(-rate * 7.0)
-        elif rel == TemporalRelation.THIS_MONTH or (rel == TemporalRelation.BEFORE and query.temporal_window.boundary in ("dicembre", "december")):
+        elif rel == TemporalRelation.SPECIFIC_DATE:
             temporal_prob = 1.0 - math.exp(-rate * 30.0)
-        elif rel == TemporalRelation.NEXT:
+        elif rel == TemporalRelation.FUTURE:
+            temporal_prob = posterior.mean
+        elif rel == TemporalRelation.PRESENT:
+            temporal_prob = 1.0
+        else:
             temporal_prob = posterior.mean
 
         source_desc = "telemetria Git reale" if target.startswith("git:") else "evidenze storiche"
@@ -174,10 +204,29 @@ class SemanticForecastPipeline:
             f"{evidence['failures']} insuccessi registrati, rate stimato ~{rate:.2f} eventi/giorno."
         )
 
-        return SemanticForecastResult(
-            query=query,
+        res = SemanticForecastResult(
+            query=legacy_query,
             posterior=posterior,
             temporal_probability=temporal_prob,
             entropy_bits=entropy,
             explanation=explanation,
+            structured_intent=struct,
         )
+        return struct, res
+
+    def process_intent(self, text: str) -> StructuredIntent:
+        """Elabora la query testuale e restituisce direttamente lo StructuredIntent validato."""
+        available_targets = list(self.knowledge_base.keys())
+        return self.parser.parse_structured(text, available_targets=available_targets)
+
+    def execute(self, text: str) -> SemanticForecastResult:
+        """Esegue l'elaborazione restituendo il SemanticForecastResult."""
+        _, res = self.execute_structured(text)
+        return res
+
+    def run(self, text: str) -> SemanticForecastResult:
+        """Alias compatibile per l'esecuzione della pipeline."""
+        return self.execute(text)
+
+
+MakimaNLPPipeline = SemanticForecastPipeline
