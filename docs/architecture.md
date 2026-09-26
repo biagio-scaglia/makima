@@ -36,34 +36,43 @@ Il repository è strutturato come un sistema ibrido multi-crate e multi-language
 makima/
 ├── Cargo.toml                  # Configurazione Cargo workspace root
 ├── rust-toolchain.toml         # Puntamento a toolchain Rust stabile + linters
-├── pyproject.toml              # Definizione packaging, standard di test e linting Python
+├── pyproject.toml              # Packaging e dipendenze del laboratorio scientifico Python
+├── avvio.bat                   # Launcher rapido Windows a latenza zero (<300ms, senza test)
+├── start.bat                   # Launcher Windows con suite di verifica completa
 │
 ├── crates/
-│   ├── makima-core/            # Dominio fondazionale, tipi immutabili, motore probabilistico
+│   ├── makima-core/            # Dominio fondazionale, inferenza bayesiana, Poisson, SQLite WAL
 │   │   ├── Cargo.toml
-│   │   └── src/
-│   │       └── lib.rs
-│   └── makima-cli/             # Interfaccia da riga di comando per diagnostica e interazione
+│   │   └── src/                # lib.rs, eval.rs, forecast.rs, storage.rs, laplace.rs, prob/
+│   └── makima-cli/             # Interfaccia CLI ad alte prestazioni (main.rs, eyes.rs)
 │       ├── Cargo.toml
 │       └── src/
-│           └── main.rs
 │
 ├── python/
-│   └── makima_lab/             # Modulo Python per la sperimentazione scientifica
-│       ├── README.md
-│       └── __init__.py
+│   └── makima_lab/             # Laboratorio scientifico e ricerca NLP
+│       ├── nlp/                # SemanticQueryParser, ForecastQuery, Intent, TemporalWindow
+│       ├── neural/             # MakimaMindNet (PyTorch Self-Attention & Latent Memory)
+│       ├── llm/                # QwenCognitiveEngine (SLM locale 0.5B per explain e chat)
+│       ├── embeddings.py       # SemanticEmbedder (SentenceTransformers & Cosine Matching)
+│       ├── git_observer.py     # Telemetria Git reale e monitoraggio daemon
+│       ├── distributions.py    # Distribuzioni probabilistiche in Python
+│       ├── evaluation.py       # Valutatore Brier Score ed ECE
+│       └── storage.py          # Adapter SQLite WAL e JSON per Python
 │
-├── experiments/                # Report, script di simulazione e benchmark riproducibili
-│   └── README.md
+├── experiments/                # Benchmark scientifici, studi di ablazione e calibrazione
+│   ├── 01_probabilistic_calibration_benchmark.py
+│   └── forecasting/            # Datasets sintetici, baselines, ablation runner, evaluate.py
 │
-├── docs/                       # Specifiche architetturali, matematiche e contratti di dominio
-│   ├── architecture.md
-│   └── mathematics.md
+├── docs/                       # Documentazione tecnica, architetturale e matematica
+│   ├── architecture.md         # Specifica architetturale e principi di dominio
+│   ├── mathematics.md          # Fondamenti matematici, formule e scoring rules
+│   └── pipeline_and_dataflow.md # Flusso dati end-to-end, moduli e protocollo Rust-Python
 │
-└── tests/                      # Suite di test di integrazione, end-to-end e cross-language
-    ├── README.md
-    └── test_makima_lab.py
+├── scripts/                    # Script di automazione e verifica qualità (check.ps1, check.sh)
+└── tests/                      # Suite di unit test e integrazione Rust & Python
 ```
+
+> Per una descrizione dettagliata del flusso dei dati attraverso tutti i componenti e del protocollo di comunicazione tra Rust e Python, consultare [docs/pipeline_and_dataflow.md](file:///c:/Users/biagio.scaglia/Desktop/makima/docs/pipeline_and_dataflow.md).
 
 ---
 
