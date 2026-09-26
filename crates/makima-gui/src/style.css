@@ -698,3 +698,286 @@ body {
   white-space: pre-wrap;
   line-height: 1.6;
 }
+
+/* ==========================================================================
+   Second Brain Knowledge Graph & Synaptic Inspector
+   ========================================================================== */
+.brain-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 18px;
+  height: calc(100vh - 220px);
+}
+
+.brain-canvas-card {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.brain-toolbar {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(13, 19, 33, 0.9);
+}
+
+.filter-chip-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-sans);
+}
+
+.chip:hover {
+  background: rgba(30, 41, 59, 0.8);
+  color: var(--text-main);
+  border-color: var(--text-muted);
+}
+
+.chip.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+}
+
+.chip-target.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.chip-memory.active {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+}
+
+.chip-reflection.active {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+}
+
+.chip-fact.active {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: var(--accent-emerald);
+  color: var(--accent-emerald);
+}
+
+.chip-concept.active {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: var(--accent-rose);
+  color: var(--accent-rose);
+}
+
+.brain-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brain-viewport {
+  flex: 1;
+  position: relative;
+  background: radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.6) 0%, rgba(9, 13, 22, 0.95) 100%);
+  overflow: hidden;
+  cursor: grab;
+}
+
+.brain-viewport.dragging {
+  cursor: grabbing;
+}
+
+#brain-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.brain-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--accent-cyan);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: var(--text-main);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 10px rgba(56, 189, 248, 0.3);
+  z-index: 10;
+  transition: opacity 0.15s ease;
+  transform: translate(-50%, -120%);
+  white-space: nowrap;
+}
+
+.brain-tooltip.hidden {
+  display: none;
+}
+
+.brain-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(13, 19, 33, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-cyan { background: var(--accent-cyan); box-shadow: 0 0 6px var(--accent-cyan); }
+.dot-purple { background: var(--accent-purple); box-shadow: 0 0 6px var(--accent-purple); }
+.dot-amber { background: var(--accent-amber); box-shadow: 0 0 6px var(--accent-amber); }
+.dot-emerald { background: var(--accent-emerald); box-shadow: 0 0 6px var(--accent-emerald); }
+.dot-rose { background: var(--accent-rose); box-shadow: 0 0 6px var(--accent-rose); }
+
+/* Side Inspector Drawer */
+.brain-inspector-card {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(13, 19, 33, 0.9);
+}
+
+.inspector-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.confidence-bar-wrapper {
+  width: 100%;
+  height: 6px;
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 4px 0 2px 0;
+}
+
+.confidence-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7, var(--accent-cyan), var(--accent-emerald));
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.inspector-section h3 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.inspector-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.inspector-text-content {
+  font-size: 0.82rem;
+  color: var(--text-main);
+  background: rgba(10, 15, 29, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.4);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.connections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.conn-pill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.conn-pill:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  transform: translateX(2px);
+}
+
+.conn-rel {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-pill {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: var(--accent-cyan);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+}
+

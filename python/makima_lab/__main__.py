@@ -16,11 +16,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from makima_lab.distributions import Bernoulli, BetaDistribution, PoissonDistribution
 from makima_lab.nlp import SemanticForecastPipeline
-from makima_lab.neural import get_neural_engine
 from makima_lab.storage import record_journal_entry
 
-
-from makima_lab.llm import get_llm_engine
 
 
 def print_banner():
@@ -44,6 +41,7 @@ def print_banner():
 
 def handle_explain(target_name: str) -> None:
     """Genera una spiegazione analitica per un target probabilistico tramite Qwen 2.5."""
+    from makima_lab.llm import get_llm_engine
     engine = get_llm_engine()
     # Recupera dati di default o da storage per il target
     alpha = 16.0 if target_name in ("deploy", "git:feature_ratio") else 3.0
@@ -68,6 +66,7 @@ def handle_explain(target_name: str) -> None:
 
 def handle_digest() -> None:
     """Genera un bollettino esecutivo di forecasting tramite Qwen 2.5."""
+    from makima_lab.llm import get_llm_engine
     engine = get_llm_engine()
     sample_targets = [
         {"name": "git:feature_ratio", "prob": 0.73, "obs": 37},
@@ -161,6 +160,7 @@ def handle_chat_interactive() -> None:
 
 def handle_journal(text: str) -> None:
     """Registra una frase dell'utente, la percepisce con la rete neurale, aggiorna la memoria e salva su SQLite."""
+    from makima_lab.neural import get_neural_engine
     engine = get_neural_engine()
     perception = engine.perceive(text, update_memory=True)
 
@@ -193,12 +193,14 @@ def handle_journal(text: str) -> None:
 
 
 def handle_neural_inspection(text: str) -> None:
+    from makima_lab.neural import get_neural_engine
     engine = get_neural_engine()
     res = engine.perceive(text, update_memory=False)
     print("\n" + res.format_report() + "\n")
 
 
 def handle_memory_status() -> None:
+    from makima_lab.neural import get_neural_engine
     engine = get_neural_engine()
     import torch
     norm = float(torch.norm(engine.user_memory).item())
@@ -360,11 +362,24 @@ def main():
         elif subcmd in ("benchmark", "bench", "eval-all"):
             from experiments.forecasting.run_benchmarks import main as run_benchmark_main
             run_benchmark_main()
-        elif subcmd in ("ablation", "ablate"):
-            from experiments.forecasting.ablation import AblationRunner
-            res = AblationRunner.run_ablation_study(seed=42)
-            import json
-            print("\n" + json.dumps(res, indent=2) + "\n")
+        elif subcmd in ("brain", "second-brain", "graph"):
+            from makima_lab.mind.knowledge_graph import SecondBrainBuilder
+            builder = SecondBrainBuilder()
+            graph = builder.build_graph()
+            print("\n===================================================")
+            print("           MAKIMA SECOND BRAIN KNOWLEDGE GRAPH     ")
+            print("===================================================")
+            print(f"Nodi Totali nel Grafo:    {graph.stats['total_nodes']}")
+            print(f"Sinapsi / Archi Attivi:   {graph.stats['total_edges']}")
+            print(f"Target Stocastici:        {graph.stats['targets_count']}")
+            print(f"Memorie Episodiche:       {graph.stats['memories_count']}")
+            print(f"Riflessioni Introspettive:{graph.stats['reflections_count']}")
+            print(f"Fatti Utente/Dev:         {graph.stats['facts_count']}")
+            print(f"Risonanza Epistemica:     {graph.stats['resonance_score']} / 100")
+            print("---------------------------------------------------")
+            for node in graph.nodes[:8]:
+                print(f"• [{node.category.upper():10}] {node.label} (Conf: {node.confidence*100:.0f}%, Conn: {node.connections_count})")
+            print("===================================================\n")
         else:
             interactive_loop()
     else:

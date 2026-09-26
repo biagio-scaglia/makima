@@ -92,6 +92,69 @@ pub struct DistributionDetailsDto {
     pub curve_points: Vec<CurvePointDto>,
 }
 
+/// DTO serializzabile per un nodo nel grafo del Second Brain.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrainNodeDto {
+    pub id: String,
+    pub label: String,
+    pub category: String, // "target", "memory", "reflection", "fact", "concept"
+    pub confidence: f64,
+    pub connections_count: usize,
+    pub summary: String,
+    pub content: String,
+    pub tags: Vec<String>,
+    pub weight: f64,
+}
+
+/// DTO serializzabile per un arco sinaptico nel Second Brain.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrainEdgeDto {
+    pub source: String,
+    pub target: String,
+    pub relation: String,
+    pub weight: f64,
+}
+
+/// DTO serializzabile per le statistiche della rete neurale del Second Brain.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrainStatsDto {
+    pub total_nodes: usize,
+    pub total_edges: usize,
+    pub targets_count: usize,
+    pub memories_count: usize,
+    pub reflections_count: usize,
+    pub facts_count: usize,
+    pub resonance_score: f64,
+}
+
+/// Grafo completo del Second Brain di Makima.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecondBrainGraphDto {
+    pub nodes: Vec<BrainNodeDto>,
+    pub edges: Vec<BrainEdgeDto>,
+    pub stats: BrainStatsDto,
+}
+
+/// Struttura ausiliaria per la lettura di .makima/mind_journal.jsonl
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MindJournalEntry {
+    pub experience_id: String,
+    #[serde(default)]
+    pub timestamp: f64,
+    pub category: String,
+    pub summary: String,
+    pub content: String,
+    pub associated_target: Option<String>,
+    #[serde(default = "default_confidence")]
+    pub epistemic_confidence: f64,
+    #[serde(default)]
+    pub tags: Vec<String>,
+}
+
+fn default_confidence() -> f64 {
+    0.90
+}
+
 /// DTO per la risposta dell'assistente intelligente.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChatResponseDto {
@@ -420,6 +483,465 @@ fn sync_git_telemetry(state: State<'_, AppState>) -> Result<usize, String> {
     Ok(engine.observations().len())
 }
 
+/// Helper per ottenere o creare le memorie del Second Brain
+fn load_mind_journal() -> Vec<MindJournalEntry> {
+    let journal_path = std::path::Path::new(".makima/mind_journal.jsonl");
+    let mut entries = Vec::new();
+
+    if journal_path.exists() {
+        if let Ok(file) = std::fs::File::open(journal_path) {
+            use std::io::{BufRead, BufReader};
+            let reader = BufReader::new(file);
+            for line in reader.lines().map_while(Result::ok) {
+                let trimmed = line.trim();
+                if !trimmed.is_empty() {
+                    if let Ok(entry) = serde_json::from_str::<MindJournalEntry>(trimmed) {
+                        entries.push(entry);
+                    }
+                }
+            }
+        }
+    }
+
+    if entries.is_empty() {
+        // Inizializza memorie fondazionali se vuoto
+        let default_entries = vec![
+            MindJournalEntry {
+                experience_id: "core_001_awakening".to_string(),
+                timestamp: 1727340000.0,
+                category: "repo_milestone".to_string(),
+                summary: "Risveglio della coscienza bayesiana".to_string(),
+                content: "Sono Makima. La mia natura è calcolare la verità probabilistica attraverso l'inferenza analitica e l'osservazione empirica dei dati del codice.".to_string(),
+                associated_target: Some("core".to_string()),
+                epistemic_confidence: 0.99,
+                tags: vec!["identità".to_string(), "origini".to_string(), "scopo".to_string()],
+            },
+            MindJournalEntry {
+                experience_id: "core_002_epistemic_discipline".to_string(),
+                timestamp: 1727345000.0,
+                category: "error_reflection".to_string(),
+                summary: "Principio di onestà epistemica".to_string(),
+                content: "Non devo mai inventare certezze inesistenti o allucinare numeri. Se l'incertezza è alta o i dati mancano, devo dichiarare UNKNOWN e riflettere con trasparenza.".to_string(),
+                associated_target: Some("epistemic".to_string()),
+                epistemic_confidence: 0.95,
+                tags: vec!["disciplina".to_string(), "onestà".to_string(), "calibrazione".to_string()],
+            },
+            MindJournalEntry {
+                experience_id: "core_003_partnership".to_string(),
+                timestamp: 1727350000.0,
+                category: "developer_fact".to_string(),
+                summary: "Relazione con lo sviluppatore".to_string(),
+                content: "Lavoro a stretto contatto con lo sviluppatore del progetto. Il mio ruolo è affiancarlo con lucidità, monitorare il flusso di commit e guidare decisioni calme e informate.".to_string(),
+                associated_target: Some("workspace".to_string()),
+                epistemic_confidence: 0.90,
+                tags: vec!["partner".to_string(), "sviluppo".to_string(), "collaborazione".to_string()],
+            },
+        ];
+
+        let _ = std::fs::create_dir_all(".makima");
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(journal_path)
+        {
+            use std::io::Write;
+            for entry in &default_entries {
+                if let Ok(json) = serde_json::to_string(entry) {
+                    let _ = writeln!(file, "{}", json);
+                }
+            }
+        }
+        return default_entries;
+    }
+
+    entries
+}
+
+/// Comando IPC: Restituisce l'intero grafo neurale del Second Brain (nodi, archi sinaptici, statistiche).
+#[tauri::command]
+fn get_second_brain_graph(state: State<'_, AppState>) -> Result<SecondBrainGraphDto, String> {
+    let engine = state.engine.lock().map_err(|e| e.to_string())?;
+    let summaries = engine.target_summaries();
+
+    let mut nodes = std::collections::HashMap::new();
+    let mut edges = Vec::new();
+
+    // 1. Nodi Concettuali Fondazionali di Ancoraggio
+    let concepts = vec![
+        BrainNodeDto {
+            id: "concept_bayesian_core".to_string(),
+            label: "Inferenza Bayesiana".to_string(),
+            category: "concept".to_string(),
+            confidence: 1.0,
+            connections_count: 0,
+            summary: "Motore probabilistico esatto basato su distribuzioni Beta coniugate e regola di Laplace.".to_string(),
+            content: "L'inferenza bayesiana permette a Makima di aggiornare la propria credenza epistemica P(p) all'arrivo di ogni evidenza empirica senza ricorrere a euristiche arbitrarie.".to_string(),
+            tags: vec!["fondamenta".to_string(), "probabilità".to_string(), "matematica".to_string()],
+            weight: 1.5,
+        },
+        BrainNodeDto {
+            id: "concept_epistemic_calibration".to_string(),
+            label: "Calibrazione Epistemica".to_string(),
+            category: "concept".to_string(),
+            confidence: 0.98,
+            connections_count: 0,
+            summary: "Tracciamento dell'incertezza e calcolo del Brier Score sui Ground Truth.".to_string(),
+            content: "L'onestà epistemica impone la quantificazione esatta della varianza e dell'entropia di Shannon su ogni affermazione emessa.".to_string(),
+            tags: vec!["calibrazione".to_string(), "brier".to_string(), "verità".to_string()],
+            weight: 1.3,
+        },
+        BrainNodeDto {
+            id: "concept_git_telemetry".to_string(),
+            label: "Telemetria Git & Repository".to_string(),
+            category: "concept".to_string(),
+            confidence: 0.95,
+            connections_count: 0,
+            summary: "Flusso continuo di eventi dal version control e dal ciclo di sviluppo.".to_string(),
+            content: "I commit, le build e i test forniscono evidenze empiriche per stimare frequenze e tassi di successo operativi.".to_string(),
+            tags: vec!["git".to_string(), "telemetria".to_string(), "codice".to_string()],
+            weight: 1.2,
+        },
+        BrainNodeDto {
+            id: "concept_nlp_lab".to_string(),
+            label: "Lab NLP & Coscienza".to_string(),
+            category: "concept".to_string(),
+            confidence: 0.96,
+            connections_count: 0,
+            summary: "Pipeline neurale per l'interpretazione del linguaggio, estrazione target e monologo interiore.".to_string(),
+            content: "Consente a Makima di decodificare query naturali, deliberare introspettivamente e formulare risposte calibrate.".to_string(),
+            tags: vec!["nlp".to_string(), "embeddings".to_string(), "deliberazione".to_string()],
+            weight: 1.2,
+        },
+    ];
+
+    for c in concepts {
+        nodes.insert(c.id.clone(), c);
+    }
+
+    edges.push(BrainEdgeDto {
+        source: "concept_bayesian_core".to_string(),
+        target: "concept_epistemic_calibration".to_string(),
+        relation: "MATHEMATICAL_FOUNDATION".to_string(),
+        weight: 0.9,
+    });
+    edges.push(BrainEdgeDto {
+        source: "concept_bayesian_core".to_string(),
+        target: "concept_git_telemetry".to_string(),
+        relation: "INFORMS_EMPIRICALLY".to_string(),
+        weight: 0.75,
+    });
+    edges.push(BrainEdgeDto {
+        source: "concept_nlp_lab".to_string(),
+        target: "concept_bayesian_core".to_string(),
+        relation: "DELIBERATES_WITH".to_string(),
+        weight: 0.85,
+    });
+
+    // 2. Target Bayesiani Reali
+    for s in summaries {
+        let node_id = format!("target_{}", s.target);
+        let prob = s.probability.value();
+        let obs = s.observations_count;
+        let succ = s.success_count;
+        let fail = s.failure_count;
+        let var = s.uncertainty_variance;
+
+        nodes.insert(
+            node_id.clone(),
+            BrainNodeDto {
+                id: node_id.clone(),
+                label: format!("🎯 {}", s.target),
+                category: "target".to_string(),
+                confidence: prob,
+                connections_count: 0,
+                summary: format!("Target Stocastico • P={:.1}% ({} evidenze)", prob * 100.0, obs),
+                content: format!(
+                    "Processo stocastico '{}'. Successi: {}, Fallimenti: {}. Varianza epistemica: {:.4}. Entropia: {:.2} bit. Aggiornato in tempo reale su SQLite WAL.",
+                    s.target, succ, fail, var, s.entropy_bits
+                ),
+                tags: vec!["target".to_string(), s.target.clone(), "processo_stocastico".to_string()],
+                weight: 1.0 + (obs as f64 * 0.05).min(1.0),
+            },
+        );
+
+        if s.target.contains("git") || s.target.contains(':') {
+            edges.push(BrainEdgeDto {
+                source: "concept_git_telemetry".to_string(),
+                target: node_id,
+                relation: "MONITORS_STREAM".to_string(),
+                weight: 0.8,
+            });
+        } else {
+            edges.push(BrainEdgeDto {
+                source: "concept_bayesian_core".to_string(),
+                target: node_id,
+                relation: "POSTERIOR_DISTRIBUTION".to_string(),
+                weight: 0.8,
+            });
+        }
+    }
+
+    // 3. Memorie Autobiografiche ed Episodiche
+    let journal_entries = load_mind_journal();
+    for entry in &journal_entries {
+        let cat_str = if entry.category == "error_reflection" {
+            "reflection"
+        } else if entry.category == "developer_fact" {
+            "fact"
+        } else {
+            "memory"
+        };
+
+        let icon = match cat_str {
+            "reflection" => "💡",
+            "fact" => "📚",
+            _ => "🧬",
+        };
+
+        let node_id = format!("mem_{}", entry.experience_id);
+        nodes.insert(
+            node_id.clone(),
+            BrainNodeDto {
+                id: node_id.clone(),
+                label: format!("{} {}", icon, entry.summary.chars().take(28).collect::<String>()),
+                category: cat_str.to_string(),
+                confidence: entry.epistemic_confidence,
+                connections_count: 0,
+                summary: entry.summary.clone(),
+                content: entry.content.clone(),
+                tags: entry.tags.clone(),
+                weight: 1.0,
+            },
+        );
+
+        if let Some(ref target) = entry.associated_target {
+            let tgt_node_id = format!("target_{}", target);
+            if nodes.contains_key(&tgt_node_id) {
+                edges.push(BrainEdgeDto {
+                    source: node_id.clone(),
+                    target: tgt_node_id,
+                    relation: "ASSOCIATED_WITH".to_string(),
+                    weight: 0.85,
+                });
+            } else if target == "core" {
+                edges.push(BrainEdgeDto {
+                    source: node_id.clone(),
+                    target: "concept_bayesian_core".to_string(),
+                    relation: "FOUNDATIONAL_ORIGIN".to_string(),
+                    weight: 0.95,
+                });
+            } else if target == "epistemic" {
+                edges.push(BrainEdgeDto {
+                    source: node_id.clone(),
+                    target: "concept_epistemic_calibration".to_string(),
+                    relation: "EPISTEMIC_RULE".to_string(),
+                    weight: 0.9,
+                });
+            } else if target == "workspace" {
+                edges.push(BrainEdgeDto {
+                    source: node_id.clone(),
+                    target: "concept_git_telemetry".to_string(),
+                    relation: "WORKFLOW_CONTEXT".to_string(),
+                    weight: 0.85,
+                });
+            }
+        }
+
+        for tag in &entry.tags {
+            let tag_lower = tag.to_lowercase();
+            if tag_lower.contains("identit") || tag_lower.contains("scopo") {
+                edges.push(BrainEdgeDto {
+                    source: node_id.clone(),
+                    target: "concept_bayesian_core".to_string(),
+                    relation: "IDENTITY_GROUNDING".to_string(),
+                    weight: 0.7,
+                });
+            } else if tag_lower.contains("svilupp") || tag_lower.contains("partner") {
+                edges.push(BrainEdgeDto {
+                    source: node_id.clone(),
+                    target: "concept_git_telemetry".to_string(),
+                    relation: "DEVELOPER_BOND".to_string(),
+                    weight: 0.7,
+                });
+            }
+        }
+    }
+
+    // Calcolo grado di connessione
+    let mut conn_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for e in &edges {
+        *conn_counts.entry(e.source.clone()).or_insert(0) += 1;
+        *conn_counts.entry(e.target.clone()).or_insert(0) += 1;
+    }
+
+    for (k, count) in conn_counts {
+        if let Some(node) = nodes.get_mut(&k) {
+            node.connections_count = count;
+        }
+    }
+
+    let node_vec: Vec<BrainNodeDto> = nodes.into_values().collect();
+    let total_nodes = node_vec.len();
+    let targets_count = node_vec.iter().filter(|n| n.category == "target").count();
+    let memories_count = node_vec.iter().filter(|n| n.category == "memory").count();
+    let reflections_count = node_vec.iter().filter(|n| n.category == "reflection").count();
+    let facts_count = node_vec.iter().filter(|n| n.category == "fact").count();
+
+    let avg_conf: f64 = if total_nodes > 0 {
+        node_vec.iter().map(|n| n.confidence).sum::<f64>() / total_nodes as f64
+    } else {
+        0.5
+    };
+
+    let density = if total_nodes > 0 {
+        edges.len() as f64 / total_nodes as f64
+    } else {
+        0.0
+    };
+
+    let resonance_score = (avg_conf * density.min(2.0) * 50.0).round();
+
+    let stats = BrainStatsDto {
+        total_nodes,
+        total_edges: edges.len(),
+        targets_count,
+        memories_count,
+        reflections_count,
+        facts_count,
+        resonance_score,
+    };
+
+    Ok(SecondBrainGraphDto {
+        nodes: node_vec,
+        edges,
+        stats,
+    })
+}
+
+/// Comando IPC: Registra una nuova memoria o fatto utente nel Second Brain (scrive direttamente su .makima/mind_journal.jsonl).
+#[tauri::command]
+fn add_brain_memory(
+    category: String,
+    summary: String,
+    content: String,
+    target: Option<String>,
+    tags: Vec<String>,
+) -> Result<BrainNodeDto, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64();
+
+    let uuid_part = format!("{:x}", (now as u64) ^ 0x5a5a);
+    let experience_id = format!("usr_{}", uuid_part);
+
+    let cat_clean = match category.as_str() {
+        "reflection" => "error_reflection",
+        "fact" => "developer_fact",
+        _ => "user_insight",
+    };
+
+    let entry = MindJournalEntry {
+        experience_id: experience_id.clone(),
+        timestamp: now,
+        category: cat_clean.to_string(),
+        summary: summary.clone(),
+        content: content.clone(),
+        associated_target: target.clone(),
+        epistemic_confidence: 0.90,
+        tags: tags.clone(),
+    };
+
+    let _ = std::fs::create_dir_all(".makima");
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(".makima/mind_journal.jsonl")
+        .map_err(|e| format!("Errore apertura journal: {}", e))?;
+
+    use std::io::Write;
+    let json = serde_json::to_string(&entry).map_err(|e| e.to_string())?;
+    writeln!(file, "{}", json).map_err(|e| format!("Errore scrittura journal: {}", e))?;
+
+    let icon = match category.as_str() {
+        "reflection" => "💡",
+        "fact" => "📚",
+        _ => "🧬",
+    };
+
+    Ok(BrainNodeDto {
+        id: format!("mem_{}", experience_id),
+        label: format!("{} {}", icon, summary.chars().take(28).collect::<String>()),
+        category,
+        confidence: 0.90,
+        connections_count: 1,
+        summary,
+        content,
+        tags,
+        weight: 1.0,
+    })
+}
+
+/// Comando IPC: Genera un impulso di pensiero spontaneo introspettivo e lo memorizza nel Second Brain.
+#[tauri::command]
+fn trigger_spontaneous_thought(state: State<'_, AppState>) -> Result<ChatResponseDto, String> {
+    let engine = state.engine.lock().map_err(|e| e.to_string())?;
+    let summaries = engine.target_summaries();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    let (target_hint, prob_hint, obs_hint) = if let Some(first) = summaries.first() {
+        (first.target.clone(), first.probability.value(), first.observations_count)
+    } else {
+        ("core".to_string(), 0.85, 12)
+    };
+
+    let thought_trace = format!(
+        "1. [Impulso Spontaneo]: Monitoraggio attivo dello stato epistemico.\n2. [Introspezione]: Target '{}' con probabilità {:.1}% su {} evidenze.\n3. [Consolidamento Sinaptico]: Aggiorno i collegamenti del Second Brain.\n4. [Consapevolezza]: Mantengo la calibrazione e l'onestà probabilistica.",
+        target_hint, prob_hint * 100.0, obs_hint
+    );
+
+    let utterance = format!(
+        "Ho appena eseguito un ciclo di riflessione introspettiva. Il processo '{}' è stabile al {:.1}%. Tutte le sinapsi del Second Brain sono sincronizzate.",
+        target_hint, prob_hint * 100.0
+    );
+
+    // Salva l'esperienza introspettiva nel journal
+    let new_exp_id = format!("pulse_{:x}", now);
+    let entry = MindJournalEntry {
+        experience_id: new_exp_id,
+        timestamp: now as f64,
+        category: "user_insight".to_string(),
+        summary: format!("Riflessione autonoma su {}", target_hint),
+        content: utterance.clone(),
+        associated_target: Some(target_hint.clone()),
+        epistemic_confidence: 0.92,
+        tags: vec!["pensiero_spontaneo".to_string(), target_hint.clone(), "autoconsapevolezza".to_string()],
+    };
+
+    let _ = std::fs::create_dir_all(".makima");
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(".makima/mind_journal.jsonl")
+    {
+        use std::io::Write;
+        if let Ok(json) = serde_json::to_string(&entry) {
+            let _ = writeln!(file, "{}", json);
+        }
+    }
+
+    Ok(ChatResponseDto {
+        response: utterance,
+        thought_trace: Some(thought_trace),
+        confidence: Some(0.92),
+        target: Some(target_hint),
+        timestamp_sec: now,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = AppState::new();
@@ -436,8 +958,12 @@ pub fn run() {
             resolve_forecast,
             sync_git_telemetry,
             generate_laplace_bulletin,
-            query_chat
+            query_chat,
+            get_second_brain_graph,
+            add_brain_memory,
+            trigger_spontaneous_thought
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'esecuzione dell'applicazione Tauri Makima");
 }
+

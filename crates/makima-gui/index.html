@@ -39,6 +39,10 @@
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span>Chat Assistente</span>
         </button>
+        <button class="nav-item" data-tab="brain">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <span>Second Brain</span>
+        </button>
         <button class="nav-item" data-tab="bulletin">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
           <span>Laplace Mail</span>
@@ -278,7 +282,178 @@
         </div>
       </section>
 
-      <!-- TAB 5: LAPLACE MAIL -->
+      <!-- TAB 5: SECOND BRAIN KNOWLEDGE GRAPH -->
+      <section id="tab-brain" class="tab-panel">
+        <!-- Stats Row -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Nodi Cognitivi Totali</span>
+            <span class="stat-value highlight-cyan" id="stat-brain-nodes">0</span>
+            <span class="stat-hint">Target, memorie, fatti e concetti</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Sinapsi Attive</span>
+            <span class="stat-value highlight-emerald" id="stat-brain-edges">0</span>
+            <span class="stat-hint">Connessioni associative dense</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Risonanza Epistemica</span>
+            <span class="stat-value highlight-purple" id="stat-brain-resonance">0.0</span>
+            <span class="stat-hint">Indice di coerenza globale [0-100]</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Memorie Autobiografiche</span>
+            <span class="stat-value" id="stat-brain-memories">0</span>
+            <span class="stat-hint">Esperienze e riflessioni nel journal</span>
+          </div>
+        </div>
+
+        <!-- Brain Workspace: Graph Canvas + Side Inspector -->
+        <div class="brain-layout">
+          <!-- Main Canvas Card -->
+          <div class="card brain-canvas-card">
+            <div class="card-header brain-toolbar">
+              <!-- Filter Chips -->
+              <div class="filter-chip-group">
+                <button class="chip active" data-filter="all">Tutti</button>
+                <button class="chip chip-target" data-filter="target">🎯 Target</button>
+                <button class="chip chip-memory" data-filter="memory">🧬 Memorie</button>
+                <button class="chip chip-reflection" data-filter="reflection">💡 Riflessioni</button>
+                <button class="chip chip-fact" data-filter="fact">📚 Fatti</button>
+                <button class="chip chip-concept" data-filter="concept">⚙️ Concetti</button>
+              </div>
+
+              <!-- Quick Actions -->
+              <div class="brain-action-group">
+                <button id="brain-pulse-btn" class="btn btn-secondary">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  ✨ Pensiero Spontaneo
+                </button>
+                <button id="brain-toggle-add-btn" class="btn btn-primary">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  ➕ Aggiungi Memoria
+                </button>
+                <button id="brain-reset-zoom-btn" class="btn btn-secondary" title="Centra Grafo">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="brain-viewport" id="brain-viewport">
+              <canvas id="brain-canvas"></canvas>
+              
+              <!-- Floating HUD Tooltip -->
+              <div id="brain-tooltip" class="brain-tooltip hidden"></div>
+
+              <!-- Canvas Mini Legend -->
+              <div class="brain-legend">
+                <div class="legend-item"><span class="dot dot-cyan"></span> Target Bayesiano</div>
+                <div class="legend-item"><span class="dot dot-purple"></span> Memoria Episodica</div>
+                <div class="legend-item"><span class="dot dot-amber"></span> Riflessione Critica</div>
+                <div class="legend-item"><span class="dot dot-emerald"></span> Fatto Sviluppatore</div>
+                <div class="legend-item"><span class="dot dot-rose"></span> Concetto Chiave</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Side Inspector Drawer -->
+          <div class="card brain-inspector-card" id="brain-inspector-card">
+            <!-- Node Details Panel (Default View) -->
+            <div id="inspector-node-view">
+              <div class="card-header">
+                <div class="card-title-group">
+                  <span class="badge" id="inspector-badge">Concetto</span>
+                  <h2 id="inspector-title" style="margin-top: 6px;">Seleziona un Nodo</h2>
+                </div>
+              </div>
+
+              <div class="inspector-body">
+                <div class="metric-item" style="margin-bottom: 12px;">
+                  <span class="metric-label">Affidabilità Epistemica</span>
+                  <div class="confidence-bar-wrapper">
+                    <div class="confidence-bar-fill" id="inspector-confidence-fill" style="width: 100%;"></div>
+                  </div>
+                  <span class="metric-val highlight-cyan" id="inspector-confidence-val">--%</span>
+                </div>
+
+                <div class="inspector-section">
+                  <h3>Sintesi del Nodo</h3>
+                  <p id="inspector-summary" class="inspector-text">Clicca su qualsiasi nodo o sinapsi del grafo interattivo per ispezionare il contenuto e le connessioni neurali.</p>
+                </div>
+
+                <div class="inspector-section">
+                  <h3>Contenuto Completo</h3>
+                  <p id="inspector-content" class="inspector-text-content">—</p>
+                </div>
+
+                <div class="inspector-section">
+                  <h3>Sinapsi Collegate (<span id="inspector-conn-count">0</span>)</h3>
+                  <div id="inspector-connections-list" class="connections-list">
+                    <span class="text-dim">Nessuna connessione selezionata.</span>
+                  </div>
+                </div>
+
+                <div class="inspector-section">
+                  <h3>Tag Semantici</h3>
+                  <div id="inspector-tags" class="tags-container">
+                    <span class="tag-pill">second-brain</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Add Memory Modal / Form View (Toggled) -->
+            <div id="inspector-add-view" class="hidden">
+              <div class="card-header">
+                <div class="card-title-group">
+                  <h2>Nuova Conoscenza</h2>
+                  <p>Insegna o confida un'informazione a Makima.</p>
+                </div>
+                <button id="close-add-view-btn" class="btn btn-secondary btn-sm">✕ Chiudi</button>
+              </div>
+
+              <form id="brain-add-form" class="form-grid" style="margin-top: 12px;">
+                <div class="form-group">
+                  <label for="brain-mem-category">Tipo di Conoscenza</label>
+                  <select id="brain-mem-category" class="select-input" required>
+                    <option value="memory">🧬 Memoria Episodica</option>
+                    <option value="reflection">💡 Riflessione / Apprendimento</option>
+                    <option value="fact">📚 Fatto Utente / Contesto Progetto</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="brain-mem-summary">Titolo Breve / Sintesi</label>
+                  <input type="text" id="brain-mem-summary" class="text-input" placeholder="es. Preferenza di architettura per i test" required />
+                </div>
+
+                <div class="form-group">
+                  <label for="brain-mem-content">Descrizione / Pensiero Dettagliato</label>
+                  <textarea id="brain-mem-content" class="textarea-input" placeholder="Spiega a Makima i dettagli, il principio o la decisione..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label for="brain-mem-target">Target o Processo Associato (Opzionale)</label>
+                  <input type="text" id="brain-mem-target" class="text-input" placeholder="es. deploy, core, framework_release" />
+                </div>
+
+                <div class="form-group">
+                  <label for="brain-mem-tags">Tag (Separati da virgola)</label>
+                  <input type="text" id="brain-mem-tags" class="text-input" placeholder="es. frontend, tauri, qualità" />
+                </div>
+
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    💾 Salva nel Second Brain
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: LAPLACE MAIL -->
       <section id="tab-bulletin" class="tab-panel">
         <div class="card">
           <div class="card-header">

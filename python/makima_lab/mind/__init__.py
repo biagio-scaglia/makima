@@ -11,6 +11,13 @@ from makima_lab.mind.episodic_memory import EpisodicMemoryStore
 from makima_lab.mind.deliberation import MindDeliberationEngine
 from makima_lab.mind.pulse import AutonomousMindPulse
 
+from makima_lab.mind.knowledge_graph import (
+    KnowledgeNode,
+    KnowledgeEdge,
+    BrainGraph,
+    SecondBrainBuilder,
+)
+
 __all__ = [
     "CognitiveMood",
     "CognitiveExperience",
@@ -20,4 +27,9 @@ __all__ = [
     "EpisodicMemoryStore",
     "MindDeliberationEngine",
     "AutonomousMindPulse",
+    "KnowledgeNode",
+    "KnowledgeEdge",
+    "BrainGraph",
+    "SecondBrainBuilder",
 ]
+
