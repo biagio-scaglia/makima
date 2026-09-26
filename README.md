@@ -235,10 +235,10 @@ Per garantire la massima trasparenza tecnica verso sviluppatori e contributori, 
 | **CLI Diagnostica & Forecast Ledger** | 🟢 **Implementato** | Eseguibile nativo con dashboard multi-target, ciclo di vita e ritratto ASCII. |
 | **Launcher Rapidi Windows** | 🟢 **Implementato** | `avvio.bat` (avvio immediato <300ms) e `start.bat` (con verifica test). |
 | **Telemetria Git Reale & Daemon** | 🟢 **Implementato** | Parser commit bilingue (italiano/inglese) e daemon in background. |
-| **NLP Semantic Query Parser** | 🟢 **Implementato** | Estrazione `Intent`, `TemporalWindow` e rejection automatica di chitchat non supportato. |
+| **Pipeline Neurale & NLP Multi-Livello** | 🟢 **Implementato** | Pipeline a 8 stadi (Preprocessing, Tokenizer, Embeddings 384d, Intent Classifier, Target Extractor, Temporal Reasoning, Context Memory, Confidence Estimation, Validation Guardrails) con benchmark quantitativo. |
 | **Vettorizzazione Semantica Embeddings** | 🟢 **Implementato** | MiniLM 384d (`SentenceTransformers`) con fallback deterministico su proiezioni hash. |
 | **Mente Neurale Cognitiva (`MakimaMindNet`)**| 🟢 **Implementato** | PyTorch BiGRU + Self-Attention, memoria utente continua e online learning. |
-| **Spiegazioni & Chat SLM (`Qwen 2.5`)** | 🟡 **Sperimentale** | Modello compatto locale 0.5B per generare spiegazioni testuali e chat continua. |
+| **Spiegazioni & Chat SLM (`Qwen 2.5`)** | 🟡 **Sperimentale** | Modello compatto locale per generare spiegazioni guidate da evidenze e chat interattiva. |
 | **Suite Benchmark & Ablation Study** | 🟡 **Sperimentale** | Benchmark comparativo su 5.000 campioni sintetici in `experiments/forecasting/`. |
 | **Distribuzioni di Dirichlet Multinomiali** | ⚪ **Pianificato** | Estensione a target categorici a più di 2 stati (Roadmap Fase 2). |
 | **Catene di Markov a Tempo Discreto (DTMC)** | ⚪ **Pianificato** | Modellazione degli stati di avanzamento del workflow di sviluppo. |
@@ -263,13 +263,24 @@ makima/
 │   ├── makima-core/            # Libreria fondazionale: dominio, probabilità, SQLite WAL, ledger
 │   │   ├── Cargo.toml
 │   │   └── src/                # lib.rs, eval.rs, forecast.rs, storage.rs, laplace.rs, prob/
-│   └── makima-cli/             # Interfaccia a riga di comando ad alte prestazioni (main.rs, eyes.rs)
-│       ├── Cargo.toml
-│       └── src/
+│   ├── makima-cli/             # Interfaccia a riga di comando ad alte prestazioni (main.rs, eyes.rs)
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   └── makima-gui/             # Interfaccia desktop Tauri v2 ultra-leggera (<50MB RAM)
 │
 ├── python/                     # Moduli scientifici e di ricerca Python
 │   └── makima_lab/             # Package makima_lab
-│       ├── nlp/                # Parser semantico, intenti, finestre temporali e pipeline
+│       ├── nlp/                # Pipeline NLP multi-livello:
+│       │   ├── preprocessing/  # Pulizia Unicode NFKC e tokenizzazione
+│       │   ├── embeddings/     # Rappresentazione vettoriale 384-dim normalizzata
+│       │   ├── intent/         # Classificatore di intenti con rifiuto UNKNOWN
+│       │   ├── entities/       # Estrazione deterministica e ranking cosine dei target
+│       │   ├── temporal/       # Comprensione temporale (passato, presente, futuro, date)
+│       │   ├── context/        # Memoria conversazionale delimitata K=5 e risoluzione anafore
+│       │   ├── confidence/     # Stima composita trasparente della confidenza
+│       │   ├── validation/     # Guardrails e schema validation per Rust Core
+│       │   ├── schemas/        # Dataclass tipizzate immutabili (StructuredIntent, Intent)
+│       │   └── evaluation/     # Suite benchmark quantitativa locale (dataset e metrics)
 │       ├── neural/             # MakimaMindNet PyTorch, tokenizer, memoria latente utente
 │       ├── llm/                # Modulo inferenza locale Qwen 2.5 SLM per explain e chat
 │       ├── embeddings.py       # SemanticEmbedder Sentence-Transformers e similarità coseno
@@ -293,7 +304,8 @@ makima/
 │
 └── tests/                      # Suite di unit test e test di integrazione Rust & Python
     ├── test_makima_lab.py      # Test sulle distribuzioni e metriche di base
-    ├── test_nlp.py             # Test su intenti, finestre temporali e pipeline NLP
+    ├── test_nlp.py             # Test di compatibilità contratti legacy NLP
+    ├── test_nlp_pipeline.py    # Suite esaustiva per tutti gli 8 stadi della pipeline NLP
     ├── test_embeddings.py      # Test su estrazione vettoriale e similarità semantica
     ├── test_neural.py          # Test su PyTorch MakimaMindNet e online backpropagation
     ├── test_git_observer.py    # Test sulla categorizzazione e sincronizzazione commit Git

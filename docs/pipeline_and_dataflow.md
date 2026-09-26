@@ -135,59 +135,64 @@ Makima adotta un'architettura **ibrida asincrona/disaccoppiata**:
 
 ---
 
-## 4. Pipeline NLP: Intent, Target e Temporal Window
+## 4. Pipeline Neurale & NLP Multi-Livello
 
-La comprensione del linguaggio naturale è affidata a [`makima_lab.nlp`](file:///c:/Users/biagio.scaglia/Desktop/makima/python/makima_lab/nlp). Il suo scopo è convertire una frase arbitraria in una struttura fortemente tipizzata: [`ForecastQuery`](file:///c:/Users/biagio.scaglia/Desktop/makima/python/makima_lab/nlp/models.py).
+La comprensione del linguaggio naturale è affidata a [`makima_lab.nlp`](file:///c:/Users/biagio.scaglia/Desktop/makima/python/makima_lab/nlp). A differenza di un approccio monolitico con prompt non vincolati, Makima adotta una pipeline a stadi specializzati che produce un oggetto fortemente tipizzato e validato: [`StructuredIntent`](file:///c:/Users/biagio.scaglia/Desktop/makima/python/makima_lab/nlp/schemas/structured_intent.py).
 
-### 4.1 Ciclo di Elaborazione Semantica
+### 4.1 Ciclo di Elaborazione Semantica a 8 Livelli
 
 ```text
-Frase Utente: "Riusciremo a completare i test unitari entro 3 giorni?"
+Frase Utente: "Quando rilascerò il prossimo framework?"
                              │
                              ▼
- 1. Normalizzazione Lessicale (lowercase, rimozione punteggiatura ridondante)
+ 1. Preprocessing            ──► Pulizia Unicode NFKC, normalizzazione apostrofi e spazi
                              │
                              ▼
- 2. Filtro Rifiuto Chitchat  ──► Rifiuta query estetiche/chitchat (es. "quanto è bello?")
+ 2. Tokenizzazione           ──► Suddivisione in parole, stopword filtering, estrazione n-grammi
                              │
                              ▼
- 3. Intent Classification    ──► Intent.RELEASE_PREDICTION / Intent.FORECAST
+ 3. Rappresentazione         ──► MiniLM-L6-v2 384-dim (L2 normalizzato) & Cosine Space
                              │
                              ▼
- 4. Target Extraction        ──► Candidato testuale: "test_unitari"
-                             │   Interroga SemanticEmbedder:
-                             │   Cosine similarity tra "test unitari" e target SQLite:
-                             │   -> Match vincente: "git:test_discipline" (sim: 0.84)
+ 4. Intent Classification    ──► Intent.TEMPORAL_QUERY (pattern sintattici & indizi lessicali)
                              │
                              ▼
- 5. Temporal Window Parsing  ──► TemporalRelation.WITHIN_DAYS (days = 3)
+ 5. Target Extraction        ──► Descrittori canonici & ranking embeddings: "framework_release"
                              │
                              ▼
- 6. Validazione ForecastQuery ──► is_valid_forecast = True
+ 6. Temporal Understanding   ──► TemporalRelation.FUTURE (orizzonte temporale futuro)
                              │
                              ▼
- 7. Esecuzione Calcolo       ──► Legge osservazioni storiche da SQLite (s=12, f=2)
-                                 Aggiorna Beta(13.0, 3.0) -> E[P] = 81.25%
-                                 Calcola Poisson con λ=0.85/giorno, finestra=3gg
-                                 Probabilità temporale = 1 - exp(-0.85 * 3) = 92.2%
+ 7. Confidence Estimation    ──► Formula composita trasparente pesata (Score: 0.82)
+                             │
+                             ▼
+ 8. Validation & Guardrails  ──► is_valid_for_core = True, notes = ["Struttura conforme"]
+                             │
+                             ▼
+       StructuredIntent DTO  ──► Serializzazione JSON deterministica per Rust Core
+                             │
+                             ▼
+ 9. Esecuzione Rust Core     ──► Aggiornamento Beta-Binomiale & Distribuzione Temporale
 ```
 
-### 4.2 Tassonomia di Dominio NLP
+### 4.2 Tassonomia di Dominio NLP & Schemi
 
 #### `Intent`
-- **`FORECAST`**: Richiesta generica di probabilità su un target noto.
-- **`RELEASE_PREDICTION`**: Richiesta legata a rilasci software, deploy, merge o completamento task.
-- **`OBSERVATION_RECORD`**: Registrazione di un evento storico.
-- **`STATUS_QUERY`**: Domanda sullo stato o la salute del motore.
-- **`UNSUPPORTED`**: Domande non probabilistiche, filosofiche o chitchat. Vengono rifiutate per evitare allucinazioni.
+- **`QUERY`**: Richiesta di stima o probabilità su un target noto.
+- **`TEMPORAL_QUERY`**: Domanda legata a una collocazione temporale specifica (*"quando...", "in che data..."*).
+- **`COMMAND`**: Istruzione operativa diretta per il motore (es. sincronizzazione Git, ricalibrazione).
+- **`INFORMATION`**: Domande esplicative di dominio (es. spiegazione formule, Brier score).
+- **`OBSERVATION`**: Registrazione di un'evidenza empirica osservata.
+- **`STATUS`**: Ispezione dello stato interno del motore e diagnostica.
+- **`UNKNOWN`**: Input ambigui, chitchat o fuori dominio. Vengono esplicitamente respinti senza allucinazioni.
 
 #### `TemporalRelation` & `TemporalWindow`
-- **`NEXT`**: Prossimo evento atteso (es. *"il prossimo framework"*).
-- **`BEFORE`**: Limite temporale superiore assoluto (es. *"entro dicembre"*).
-- **`WITHIN_DAYS`**: Finestra temporale parametrica di $N$ giorni (es. *"entro 14 giorni"*).
-- **`THIS_WEEK`**: Orizzonte circoscritto alla settimana solare corrente.
-- **`THIS_MONTH`**: Orizzonte circoscritto al mese solare corrente.
-- **`UNSPECIFIED`**: Orizzonte temporale non delimitato (previsione puramente Bernoulli/Beta).
+- **`PAST`**: Evento o serie collocata nel passato.
+- **`PRESENT`**: Stato corrente o attività in corso.
+- **`FUTURE`**: Prossimo evento futuro o rilascio software.
+- **`RELATIVE_INTERVAL`**: Finestra temporale parametrica di $N$ giorni o settimane (es. *"entro 7 giorni"*).
+- **`SPECIFIC_DATE`**: Data puntuale di calendario conforme ISO-8601 o mese nominale.
+- **`UNKNOWN`**: Orizzonte non specificato esplicitamente.
 
 ---
 
