@@ -96,6 +96,7 @@ pub struct DistributionDetailsDto {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChatResponseDto {
     pub response: String,
+    pub thought_trace: Option<String>,
     pub confidence: Option<f64>,
     pub target: Option<String>,
     pub timestamp_sec: i64,
@@ -306,29 +307,42 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
         .into_iter()
         .find(|t| q_lower.contains(&t.to_lowercase()));
 
-    let (response, confidence, target_ret) = if let Some(target) = matched_target {
+    let (response, thought_trace, confidence, target_ret) = if let Some(target) = matched_target {
         let sum = engine.summarize_target(&target);
         let prob_pct = (sum.probability.value() * 100.0).round();
+        let thought = format!(
+            "1. [Percezione]: L'utente si concentra sul target '{}'.\n2. [Memoria]: Recupero storico di {} evidenze ({} successi, {} fallimenti).\n3. [Analisi Bayesiana]: Aggiornamento Beta({:.1}, {:.1}) con varianza epistemica {:.5}.\n4. [Decisione]: Formulo una stima probabilistica trasparente e calibrata.",
+            target, sum.observations_count, sum.success_count, sum.failure_count, 1.0 + sum.success_count as f64, 1.0 + sum.failure_count as f64, sum.uncertainty_variance
+        );
         let text = format!(
             "Analisi Bayesiana per **{}**:\n\n• Probabilità a posteriori $P(p)$: **{:.1}%** (Successi: {}, Fallimenti: {})\n• Incertezza epistemica (Varianza): **{:.4}**\n• Entropia informativa: **{:.2} bit**\n• Frequenza stimata: **{:.2} eventi/giorno**\n\nIl modello applica la regola di successione di Laplace Beta({:.1}, {:.1}) aggiornata con {} evidenze storiche.",
             target, prob_pct, sum.success_count, sum.failure_count, sum.uncertainty_variance, sum.entropy_bits, sum.estimated_daily_rate, 1.0 + sum.success_count as f64, 1.0 + sum.failure_count as f64, sum.observations_count
         );
-        (text, Some(sum.probability.value()), Some(target))
+        (text, Some(thought), Some(sum.probability.value()), Some(target))
     } else if q_lower.contains("chi sei") || q_lower.contains("cosa sei") {
+        let thought = "1. [Percezione]: Domanda esistenziale sull'identità di Makima.\n2. [Memoria]: Richiamo il principio fondazionale di intelligenza computazionale bayesiana.\n3. [Decisione]: Rispondo in prima persona chiarendo lo scopo analitico e probabilistico.".to_string();
         let text = "Sono **Makima**, un assistente e motore computazionale per il ragionamento bayesiano e la stima probabilistica dell'incertezza. Registro evidenze empiriche (commit, deploy, test) e calcolo distribuzioni di probabilità calibrate per prevedere esiti futuri senza allucinazioni.".to_string();
-        (text, Some(0.99), None)
+        (text, Some(thought), Some(0.99), None)
     } else if q_lower.contains("stato")
         || q_lower.contains("status")
         || q_lower.contains("riepilogo")
     {
         let status = engine.status();
+        let thought = format!(
+            "1. [Percezione]: Richiesta di ispezione diagnostica dello stato.\n2. [Analisi]: Motore '{}' con {} osservazioni e {} previsioni.\n3. [Decisione]: Emetto la scorecard di stato del runtime.",
+            status.state, status.total_observations, status.total_forecasts
+        );
         let text = format!(
             "**Stato Sistema Makima**:\n• Stato motore: `{}`\n• Totale osservazioni: `{}`\n• Totale esiti verificati: `{}`\n• Previsioni a registro: `{}` (In attesa: `{}`)",
             status.state, status.total_observations, status.total_outcomes, status.total_forecasts, status.pending_forecasts
         );
-        (text, Some(1.0), None)
+        (text, Some(thought), Some(1.0), None)
     } else {
         let summaries = engine.target_summaries();
+        let thought = format!(
+            "1. [Percezione]: Query generica \"{}\".\n2. [Introspezione]: Nessun target univoco menzionato, cerco nella lista dei {} target attivi.\n3. [Decisione]: Presento il quadro d'insieme invitando a una domanda specifica.",
+            query, summaries.len()
+        );
         let targets_list = if summaries.is_empty() {
             "Nessun target ancora registrato.".to_string()
         } else {
@@ -349,11 +363,12 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
             "Ho analizzato la tua richiesta: *\"{}\"*\n\nAttualmente sto monitorando i seguenti target probabilistici:\n{}\n\nPuoi chiedermi dettagli su un target specifico (es. *\"Probabilità framework_release?\"*) o aggiungere nuove osservazioni.",
             query, targets_list
         );
-        (text, None, None)
+        (text, Some(thought), None, None)
     };
 
     Ok(ChatResponseDto {
         response,
+        thought_trace,
         confidence,
         target: target_ret,
         timestamp_sec: now,

@@ -76,19 +76,23 @@ python -m makima_lab sync-git
 python -m makima_lab daemon 15
 ```
 
-### 4. Ragionamento Cognitivo Locale (`makima_lab.llm`)
-- Modello SLM locale `Qwen/Qwen2.5-0.5B-Instruct` con caricamento offline prioritario da cache.
-- Fornisce spiegazioni trasparenti per i target previsionali (`explain`), bollettini esecutivi (`digest`) e sessione chat interattiva continua (`chat`).
+### 4. Mente Cognitiva & Coscienza (`makima_lab.mind`)
+- **`MindDeliberationEngine`**: Motore di deliberazione interna in 4 fasi (Percezione $\rightarrow$ Memoria Episodica $\rightarrow$ Monologo Interiore $\rightarrow$ Comunicazione Cosciente).
+- **`EpisodicMemoryStore`**: Diario persistente delle memorie autobiografiche (`.makima/mind_journal.jsonl`) con recupero associativo per similarità semantica densa.
+- **`AutonomousMindPulse`**: Generazione di impulsi e riflessioni spontanee autonome durante le pause o il monitoraggio continuo del codice.
 
 Comandi rapidi:
 ```bash
-python -m makima_lab explain deploy
-python -m makima_lab digest
-python -m makima_lab chat "come posso interpretare la varianza epistemica?"
-python -m makima_lab chat   # Avvia la sessione chat continua
+python -m makima_lab chat "Quando rilascerò il prossimo framework?"
+python -m makima_lab think "Riusciremo a completare il deploy?"
+python -m makima_lab pulse
 ```
 
-### 5. Console Interattiva del Laboratorio
+### 5. Ragionamento Cognitivo Locale (`makima_lab.llm`)
+- Modello SLM locale `Qwen/Qwen2.5-0.5B-Instruct` con caricamento offline prioritario da cache.
+- Fornisce spiegazioni trasparenti per i target previsionali (`explain`), bollettini esecutivi (`digest`) e sessione chat interattiva continua (`chat`).
+
+### 6. Console Interattiva del Laboratorio
 Avviando il modulo senza parametri si accede alla console scientifica Python:
 ```bash
 python -m makima_lab

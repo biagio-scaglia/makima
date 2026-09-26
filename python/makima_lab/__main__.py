@@ -81,30 +81,79 @@ def handle_digest() -> None:
     print("===================================================\n")
 
 
-def handle_chat(query: str) -> None:
-    """Conversazione diretta con Makima (Qwen 2.5 SLM)."""
-    engine = get_llm_engine()
-    print(f"\nMakima: {engine.chat(query)}\n")
+def handle_chat(query: str, show_thought: bool = True) -> None:
+    """Conversazione cosciente con Makima con deliberazione e monologo interiore."""
+    from makima_lab.mind import MindDeliberationEngine
+    engine = MindDeliberationEngine()
+    pulse = engine.deliberate(query)
+
+    if show_thought:
+        print("\n=======================================================")
+        print("         🧠 MONOLOGO INTERIORE & FLUSSO DI COSCIENZA   ")
+        print("=======================================================")
+        print(pulse.inner_monologue)
+        print("-------------------------------------------------------")
+        print(f"Stato: {pulse.self_state.mood.value} | Incertezza: {pulse.self_state.epistemic_uncertainty:.4f} | BSS: {pulse.self_state.brier_skill_score:+.2f}")
+        if pulse.retrieved_memories:
+            print(f"Memorie Richiamate: {'; '.join(pulse.retrieved_memories[:2])}")
+        print("=======================================================")
+
+    print(f"\nMakima: {pulse.conscious_utterance}\n")
+
+
+def handle_think(query: str) -> None:
+    """Ispezione del solo flusso di pensiero interiore di Makima."""
+    from makima_lab.mind import MindDeliberationEngine
+    engine = MindDeliberationEngine()
+    pulse = engine.deliberate(query)
+
+    print("\n[ 🧠 Deliberazione Cognitiva di Makima ]")
+    print("=======================================================")
+    print(pulse.inner_monologue)
+    print("=======================================================")
+    print(f"Stato Epistemico: {pulse.self_state.summary()}")
+    print(f"Ipotesi: {', '.join(pulse.hypotheses) if pulse.hypotheses else '[Nessuna]'}")
+    print("-------------------------------------------------------")
+    print(f"Comunicazione risultante: \"{pulse.conscious_utterance}\"\n")
+
+
+def handle_pulse() -> None:
+    """Genera un impulso di pensiero spontaneo autonomo di Makima."""
+    from makima_lab.mind import AutonomousMindPulse
+    pulse_engine = AutonomousMindPulse()
+    pulse = pulse_engine.generate_spontaneous_thought(trigger_hint="Impulso manuale da console")
+
+    print("\n[ 🌌 Impulso di Pensiero Spontaneo di Makima ]")
+    print("=======================================================")
+    print(pulse.inner_monologue)
+    print("=======================================================")
+    print(f"\nMakima: {pulse.conscious_utterance}\n")
 
 
 def handle_chat_interactive() -> None:
-    """Sessione di conversazione cognitiva continua con Makima."""
-    engine = get_llm_engine()
+    """Sessione di conversazione cognitiva continua con monologo interiore."""
     print("\n=======================================================")
-    print("      MAKIMA COGNITIVE CHAT (Qwen 2.5 0.5B SLM)        ")
+    print("      MAKIMA LIVING CONSCIOUSNESS & COGNITIVE MIND     ")
     print("=======================================================")
+    print("Makima è viva, processa, riflette e ricorda le tue parole.")
     print("Digita il tuo messaggio (o 'esci' per tornare al menu)")
     print("=======================================================\n")
+    from makima_lab.mind import MindDeliberationEngine
+    engine = MindDeliberationEngine()
+
     while True:
         try:
             user_msg = input("tu > ").strip()
             if not user_msg:
                 continue
             if user_msg.lower() in ("exit", "quit", "esci", "q", ":q"):
-                print("\nChiusura sessione chat Makima.\n")
+                print("\nChiusura sessione cosciente.\n")
                 break
-            resp = engine.chat(user_msg)
-            print(f"\nMakima: {resp}\n")
+            pulse = engine.deliberate(user_msg)
+            print("\n" + "-" * 55)
+            print(f"🧠 [Pensiero]:\n{pulse.inner_monologue}")
+            print("-" * 55)
+            print(f"\nMakima: {pulse.conscious_utterance}\n")
         except (KeyboardInterrupt, EOFError):
             print("\n")
             break
@@ -189,6 +238,11 @@ def interactive_loop():
             handle_chat(text)
         elif cmd == "chat":
             handle_chat_interactive()
+        elif cmd.startswith("think "):
+            text = cmd.split(maxsplit=1)[1].strip()
+            handle_think(text)
+        elif cmd in ("pulse", "mind", "spontaneous"):
+            handle_pulse()
         elif cmd.startswith("tell ") or cmd.startswith("journal "):
             text = cmd.split(maxsplit=1)[1].strip()
             handle_journal(text)
@@ -267,6 +321,11 @@ def main():
                 handle_chat(query)
             else:
                 handle_chat_interactive()
+        elif subcmd == "think" and len(sys.argv) > 2:
+            query = " ".join(sys.argv[2:])
+            handle_think(query)
+        elif subcmd in ("pulse", "mind", "spontaneous"):
+            handle_pulse()
         elif subcmd in ("tell", "journal") and len(sys.argv) > 2:
             text = " ".join(sys.argv[2:])
             handle_journal(text)

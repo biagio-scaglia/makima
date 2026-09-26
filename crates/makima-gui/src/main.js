@@ -321,7 +321,7 @@ function setupChatForm() {
   const input = document.getElementById("chat-input");
   const messagesBox = document.getElementById("chat-messages");
 
-  function appendMessage(sender, text) {
+  function appendMessage(sender, text, thoughtTrace = null) {
     const msgDiv = document.createElement("div");
     msgDiv.className = `chat-msg ${sender}`;
     const avatarText = sender === "assistant" ? "M" : "Tu";
@@ -333,9 +333,23 @@ function setupChatForm() {
       .replace(/`([^`]+)`/g, "<code>$1</code>")
       .replace(/\n/g, "<br/>");
 
+    let thoughtHtml = "";
+    if (thoughtTrace) {
+      const formattedThought = thoughtTrace.replace(/\n/g, "<br/>");
+      thoughtHtml = `
+        <details class="thought-box" open>
+          <summary>🧠 <em>Flusso di Coscienza & Monologo Interiore</em></summary>
+          <div class="thought-content">${formattedThought}</div>
+        </details>
+      `;
+    }
+
     msgDiv.innerHTML = `
       <div class="msg-avatar">${avatarText}</div>
-      <div class="msg-content"><p>${formatted}</p></div>
+      <div class="msg-content">
+        ${thoughtHtml}
+        <p>${formatted}</p>
+      </div>
     `;
     messagesBox.appendChild(msgDiv);
     messagesBox.scrollTop = messagesBox.scrollHeight;
@@ -351,7 +365,7 @@ function setupChatForm() {
 
     try {
       const res = await invoke("query_chat", { query: text });
-      appendMessage("assistant", res.response);
+      appendMessage("assistant", res.response, res.thought_trace);
       if (res.target) {
         currentTarget = res.target;
       }
