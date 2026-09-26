@@ -1,170 +1,5 @@
-// Makima Desktop UI Client Script
-
-let invoke = null;
-
-// Rilevamento ambiente Tauri o Browser
-async function initTauriIpc() {
-  try {
-    if (window.__TAURI_INTERNALS__) {
-      const core = await import("@tauri-apps/api/core");
-      invoke = core.invoke;
-    }
-  } catch (e) {
-    console.warn("Esecuzione in modalità browser standalone (mock attivo).", e);
-  }
-}
-
-// Fallback Mock per test in browser senza backend Tauri avviato
-const mockData = {
-  status: {
-    version: "0.1.0",
-    state: "ready",
-    total_observations: 15,
-    total_outcomes: 2,
-    total_forecasts: 2,
-    pending_forecasts: 0
-  },
-  summaries: [
-    {
-      target: "framework_release",
-      observations_count: 8,
-      success_count: 6,
-      failure_count: 2,
-      probability: 0.70,
-      uncertainty_variance: 0.0191,
-      entropy_bits: 0.88,
-      last_timestamp_sec: 1700604800,
-      estimated_daily_rate: 1.14
-    },
-    {
-      target: "daily_build",
-      observations_count: 3,
-      success_count: 3,
-      failure_count: 0,
-      probability: 0.80,
-      uncertainty_variance: 0.0267,
-      entropy_bits: 0.72,
-      last_timestamp_sec: 1700172800,
-      estimated_daily_rate: 1.50
-    },
-    {
-      target: "api_gateway",
-      observations_count: 4,
-      success_count: 3,
-      failure_count: 1,
-      probability: 0.667,
-      uncertainty_variance: 0.0317,
-      entropy_bits: 0.92,
-      last_timestamp_sec: 1700259200,
-      estimated_daily_rate: 1.33
-    }
-  ],
-  ledger: [
-    {
-      id: 1,
-      target: "framework_release",
-      created_at_sec: 1700600000,
-      probability: { value: 0.70 },
-      window_desc: "7 days",
-      evidence_count: 8,
-      model_name: "BayesianConjugate",
-      status: { Resolved: { actual: true, brier_score: 0.09, calibration_bucket: "0.7-0.8", resolved_at_sec: 1700650000 } }
-    },
-    {
-      id: 2,
-      target: "daily_build",
-      created_at_sec: 1700150000,
-      probability: { value: 0.80 },
-      window_desc: "24 hours",
-      evidence_count: 3,
-      model_name: "BayesianConjugate",
-      status: { Resolved: { actual: true, brier_score: 0.04, calibration_bucket: "0.8-0.9", resolved_at_sec: 1700200000 } }
-    }
-  ]
-};
-
-async function callIpc(cmd, args = {}) {
-  if (invoke) {
-    return await invoke(cmd, args);
-  }
-  // Mock implementations
-  if (cmd === "get_engine_status") return mockData.status;
-  if (cmd === "get_all_target_summaries") return mockData.summaries;
-  if (cmd === "get_forecast_ledger") return mockData.ledger;
-  if (cmd === "get_target_distribution") {
-    const sum = mockData.summaries.find(s => s.target === args.target) || mockData.summaries[0];
-    const alpha = 1 + sum.success_count;
-    const beta = 1 + sum.failure_count;
-    const mean = alpha / (alpha + beta);
-    const variance = (alpha * beta) / ((alpha + beta) ** 2 * (alpha + beta + 1));
-    const stdDev = Math.sqrt(variance);
-    const points = [];
-    for (let i = 0; i <= 100; i++) {
-      const x = 0.005 + (i / 100) * 0.99;
-      // Approssimazione PDF
-      const y = Math.pow(x, alpha - 1) * Math.pow(1 - x, beta - 1) * 5.0;
-      points.push({ x, y: Math.min(y, 25) });
-    }
-    return {
-      target: sum.target,
-      alpha,
-      beta,
-      mean,
-      variance,
-      entropy_bits: sum.entropy_bits,
-      ci_lower_95: Math.max(0.01, mean - 1.96 * stdDev),
-      ci_upper_95: Math.min(0.99, mean + 1.96 * stdDev),
-      curve_points: points
-    };
-  }
-  if (cmd === "add_observation") {
-    mockData.status.total_observations++;
-    const existing = mockData.summaries.find(s => s.target === args.target);
-    if (existing) {
-      existing.observations_count++;
-      if (args.success) existing.success_count++; else existing.failure_count++;
-      existing.probability = (existing.success_count + 1) / (existing.observations_count + 2);
-      return existing;
-    } else {
-      const newSum = {
-        target: args.target,
-        observations_count: 1,
-        success_count: args.success ? 1 : 0,
-        failure_count: args.success ? 0 : 1,
-        probability: args.success ? 0.667 : 0.333,
-        uncertainty_variance: 0.055,
-        entropy_bits: 0.95,
-        last_timestamp_sec: Date.now() / 1000,
-        estimated_daily_rate: 1.0
-      };
-      mockData.summaries.push(newSum);
-      return newSum;
-    }
-  }
-  if (cmd === "generate_laplace_bulletin") {
-    return `# BOLLETTINO PREVISIONALE LAPLACE MAIL\n**Data:** ${new Date().toISOString()}\n**Target Monitorati:** ${mockData.summaries.length}\n\n` +
-      mockData.summaries.map(s => `- **${s.target}**: P(p)=${(s.probability*100).toFixed(1)}% (N=${s.observations_count}, Varianza=${s.uncertainty_variance.toFixed(4)})`).join("\n");
-  }
-  if (cmd === "query_chat") {
-    const q = args.query.toLowerCase();
-    const sum = mockData.summaries.find(s => q.includes(s.target.toLowerCase()));
-    if (sum) {
-      return {
-        response: `Analisi Bayesiana per **${sum.target}**:\n\n• Probabilità a posteriori $P(p)$: **${(sum.probability * 100).toFixed(1)}%**\n• Incertezza (Varianza): **${sum.uncertainty_variance.toFixed(4)}**\n• Entropia: **${sum.entropy_bits.toFixed(2)} bit**\n• Evidenze: ${sum.observations_count} (${sum.success_count} successi, ${sum.failure_count} fallimenti).`,
-        confidence: sum.probability,
-        target: sum.target,
-        timestamp_sec: Date.now() / 1000
-      };
-    }
-    return {
-      response: `Ho elaborato la tua richiesta: "${args.query}". Monitoro ${mockData.summaries.length} target previsionali con calibrazione bayesiana continua.`,
-      confidence: 0.9,
-      target: null,
-      timestamp_sec: Date.now() / 1000
-    };
-  }
-  throw new Error(`Comando non gestito: ${cmd}`);
-}
+// Makima Desktop UI Client Script — 100% Real IPC Backend Execution
+import { invoke } from "@tauri-apps/api/core";
 
 // Stato dell'applicazione frontend
 let currentTarget = null;
@@ -202,6 +37,7 @@ function setupNavigation() {
 
       if (tab === "bulletin") loadBulletin();
       if (tab === "dashboard" && currentTarget) loadTargetDistribution(currentTarget);
+      if (tab === "ledger") loadLedgerData();
     });
   });
 }
@@ -318,17 +154,17 @@ function renderBetaCurve(dist) {
   ctx.fillText(`E[p] = ${(dist.mean * 100).toFixed(1)}%`, meanX, padT - 8);
 }
 
-// Caricamento e rendering stato e target
+// Caricamento e rendering stato e target dal DB reale
 async function loadDashboardData() {
   try {
-    const status = await callIpc("get_engine_status");
+    const status = await invoke("get_engine_status");
     document.getElementById("stat-obs-count").textContent = status.total_observations;
     document.getElementById("stat-outcomes-count").textContent = status.total_outcomes;
     document.getElementById("stat-forecasts-count").textContent = status.total_forecasts;
     document.getElementById("stat-pending-label").textContent = `${status.pending_forecasts} in attesa di risoluzione`;
     document.getElementById("engine-version-label").textContent = `v${status.version} • SQLite WAL`;
 
-    const summaries = await callIpc("get_all_target_summaries");
+    const summaries = await invoke("get_all_target_summaries");
     document.getElementById("stat-targets-count").textContent = summaries.length;
 
     // Popola select dei target
@@ -350,7 +186,7 @@ async function loadDashboardData() {
     // Popola tabella riassunti
     const tbody = document.getElementById("targets-table-body");
     if (summaries.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Nessun target registrato.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Nessun target registrato nel database.</td></tr>';
     } else {
       tbody.innerHTML = summaries.map(s => `
         <tr>
@@ -367,13 +203,13 @@ async function loadDashboardData() {
     // Carica Ledger
     await loadLedgerData();
   } catch (err) {
-    console.error("Errore durante il caricamento della dashboard:", err);
+    console.error("Errore durante il caricamento dei dati dal backend:", err);
   }
 }
 
 async function loadTargetDistribution(target) {
   try {
-    const dist = await callIpc("get_target_distribution", { target });
+    const dist = await invoke("get_target_distribution", { target });
     currentDistribution = dist;
     renderBetaCurve(dist);
 
@@ -389,10 +225,10 @@ async function loadTargetDistribution(target) {
 
 async function loadLedgerData() {
   try {
-    const ledger = await callIpc("get_forecast_ledger");
+    const ledger = await invoke("get_forecast_ledger");
     const tbody = document.getElementById("ledger-table-body");
     if (!ledger || ledger.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" class="table-empty">Nessuna previsione registrata nel ledger.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="table-empty">Nessuna previsione registrata nel ledger.</td></tr>';
       return;
     }
 
@@ -405,6 +241,10 @@ async function loadLedgerData() {
       const brier = isResolved ? rec.status.Resolved.brier_score.toFixed(4) : "—";
 
       const recId = typeof rec.id === 'object' && rec.id !== null ? (rec.id[0] ?? rec.id.toString()) : rec.id;
+      const actionCol = isResolved
+        ? '<span style="color: #64748b; font-size: 0.75rem;">Chiuso</span>'
+        : `<button class="btn btn-secondary btn-sm" onclick="window.resolveTargetForecast('${rec.target}', true)" style="padding: 2px 6px; font-size: 0.75rem; margin-right: 4px;">✓ Succ</button><button class="btn btn-secondary btn-sm" onclick="window.resolveTargetForecast('${rec.target}', false)" style="padding: 2px 6px; font-size: 0.75rem;">✗ Fall</button>`;
+
       return `
         <tr>
           <td>#${recId}</td>
@@ -416,6 +256,7 @@ async function loadLedgerData() {
           <td>${statusBadge}</td>
           <td>${actual}</td>
           <td>${brier}</td>
+          <td>${actionCol}</td>
         </tr>
       `;
     }).join("");
@@ -424,17 +265,29 @@ async function loadLedgerData() {
   }
 }
 
+// Funzione globale per risolvere una previsione con Ground Truth reale
+window.resolveTargetForecast = async (target, occurred) => {
+  if (window.confirm(`Vuoi registrare l'esito reale "${occurred ? 'SUCCESSO' : 'FALLIMENTO'}" per il target "${target}"?`)) {
+    try {
+      await invoke("resolve_forecast", { target, occurred });
+      await loadDashboardData();
+    } catch (e) {
+      window.alert("Errore risoluzione: " + e);
+    }
+  }
+};
+
 async function loadBulletin() {
   const el = document.getElementById("bulletin-content");
   try {
-    const text = await callIpc("generate_laplace_bulletin");
+    const text = await invoke("generate_laplace_bulletin");
     el.textContent = text;
   } catch (e) {
     el.textContent = "Impossibile generare il bollettino: " + e;
   }
 }
 
-// Setup Form Nuova Evidenza
+// Setup Form Nuova Evidenza (scrive direttamente su SQLite WAL)
 function setupObserveForm() {
   const form = document.getElementById("observe-form");
   const alert = document.getElementById("observe-alert");
@@ -448,8 +301,8 @@ function setupObserveForm() {
     if (!target) return;
 
     try {
-      const summary = await callIpc("add_observation", { target, success, notes });
-      alert.textContent = `Evidenza registrata con successo per "${target}". Nuova probabilità $P(p)$: ${(summary.probability * 100).toFixed(1)}%`;
+      const summary = await invoke("add_observation", { target, success, notes });
+      alert.textContent = `Evidenza reale registrata per "${target}". Nuova probabilità $P(p)$: ${(summary.probability * 100).toFixed(1)}%`;
       alert.classList.remove("hidden");
       setTimeout(() => alert.classList.add("hidden"), 5000);
 
@@ -457,7 +310,7 @@ function setupObserveForm() {
       currentTarget = target;
       await loadDashboardData();
     } catch (err) {
-      window.alert("Errore registrazione: " + err);
+      window.alert("Errore registrazione SQLite: " + err);
     }
   });
 }
@@ -473,7 +326,7 @@ function setupChatForm() {
     msgDiv.className = `chat-msg ${sender}`;
     const avatarText = sender === "assistant" ? "M" : "Tu";
     
-    // Formattazione base markdown (grassetto, corsivo, elenchi)
+    // Formattazione base markdown
     const formatted = text
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
@@ -497,20 +350,19 @@ function setupChatForm() {
     input.value = "";
 
     try {
-      const res = await callIpc("query_chat", { query: text });
+      const res = await invoke("query_chat", { query: text });
       appendMessage("assistant", res.response);
       if (res.target) {
         currentTarget = res.target;
       }
     } catch (err) {
-      appendMessage("assistant", "Si è verificato un errore durante l'elaborazione della risposta: " + err);
+      appendMessage("assistant", "Errore elaborazione query: " + err);
     }
   });
 }
 
 // Inizializzazione Principale
 window.addEventListener("DOMContentLoaded", async () => {
-  await initTauriIpc();
   setupNavigation();
   setupObserveForm();
   setupChatForm();
@@ -522,6 +374,22 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("refresh-btn").addEventListener("click", () => {
     loadDashboardData();
+  });
+
+  document.getElementById("sync-git-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("sync-git-btn");
+    btn.disabled = true;
+    btn.textContent = "Sincronizzazione...";
+    try {
+      const count = await invoke("sync_git_telemetry");
+      window.alert(`Sincronizzazione Git completata con successo! Totale osservazioni: ${count}`);
+      await loadDashboardData();
+    } catch (e) {
+      window.alert("Errore sincronizzazione Git: " + e);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/></svg> Sincronizza Git`;
+    }
   });
 
   document.getElementById("copy-bulletin-btn").addEventListener("click", () => {

@@ -360,6 +360,51 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
     })
 }
 
+/// Comando IPC: Risolve una previsione pendente con l'esito reale verificato (Ground Truth).
+#[tauri::command]
+fn resolve_forecast(
+    target: String,
+    occurred: bool,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
+    engine.record_outcome(&target, occurred, now);
+
+    // Salva nel database SQLite
+    if let Ok(db) = MakimaDb::open(&state.db_path) {
+        let _ = db.insert_outcome(&target, occurred, now, None, None);
+    }
+
+    // Salva nello store
+    let store = MakimaStore::from_engine(&engine);
+    let _ = store.save(MakimaStore::default_path());
+
+    Ok(())
+}
+
+/// Comando IPC: Sincronizza la telemetria reale dai commit Git del repository.
+#[tauri::command]
+fn sync_git_telemetry(state: State<'_, AppState>) -> Result<usize, String> {
+    // Esegue il modulo python makima_lab sync-git per popolare i target reali git:
+    let mut cmd = std::process::Command::new("python");
+    cmd.env("PYTHONPATH", "python");
+    cmd.args(["-m", "makima_lab", "sync-git"]);
+    let _ = cmd.status();
+
+    // Ricarica i dati aggiornati in MakimaEngine dal DB SQLite
+    let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Ok(db) = MakimaDb::open(&state.db_path) {
+        let _ = db.load_into_engine(&mut engine);
+    }
+
+    Ok(engine.observations().len())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = AppState::new();
@@ -373,6 +418,8 @@ pub fn run() {
             get_observations,
             get_forecast_ledger,
             add_observation,
+            resolve_forecast,
+            sync_git_telemetry,
             generate_laplace_bulletin,
             query_chat
         ])

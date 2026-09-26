@@ -63,6 +63,10 @@
           <p id="page-subtitle">Visualizzazione delle distribuzioni a posteriori, stima dell'incertezza e tracciamento eventi.</p>
         </div>
         <div class="top-actions">
+          <button id="sync-git-btn" class="btn btn-secondary">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/></svg>
+            Sincronizza Git
+          </button>
           <button id="refresh-btn" class="btn btn-secondary">
             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
             Aggiorna
@@ -240,10 +244,11 @@
                   <th>Stato</th>
                   <th>Esito Reale</th>
                   <th>Brier Score</th>
+                  <th>Azione</th>
                 </tr>
               </thead>
               <tbody id="ledger-table-body">
-                <tr><td colspan="9" class="table-empty">Nessuna previsione nel registro.</td></tr>
+                <tr><td colspan="10" class="table-empty">Nessuna previsione nel registro.</td></tr>
               </tbody>
             </table>
           </div>
