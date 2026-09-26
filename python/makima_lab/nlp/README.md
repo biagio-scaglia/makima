@@ -63,10 +63,25 @@ ForecastQuery(
 
 ## 3. Esempi di Query Supportate
 
-| Query Naturale | Intent | Target | Temporal Window | Valid |
+| Query Naturale | Intent | Target Risolto | Temporal Window | Valid |
 | :--- | :--- | :--- | :--- | :---: |
 | *"Quando rilascerò il prossimo framework?"* | `RELEASE_PREDICTION` | `framework_release` | `NEXT` | Sì |
 | *"Qual è la probabilità che rilasci framework entro dicembre?"* | `RELEASE_PREDICTION` | `framework_release` | `BEFORE(dicembre)` | Sì |
 | *"Riuscirò a rilasciare framework entro 30 giorni?"* | `RELEASE_PREDICTION` | `framework_release` | `WITHIN_DAYS(30)` | Sì |
 | *"Quanto è probabile che framework venga rilasciato questa settimana?"* | `RELEASE_PREDICTION` | `framework_release` | `THIS_WEEK` | Sì |
+| *"rilasceremo la nuova feature questa settimana?"* | `RELEASE_PREDICTION` | `git:feature_ratio` (via embeddings) | `THIS_WEEK` | Sì |
+| *"riusciremo a completare i test unitari entro 3 giorni?"* | `FORECAST` | `git:test_discipline` (via embeddings) | `WITHIN_DAYS(3)` | Sì |
 | *"Quanto è bello il mio framework?"* | `UNSUPPORTED` | `None` | `UNSPECIFIED` | No |
+
+---
+
+## 4. Esecuzione da Riga di Comando
+
+```bash
+# Esecuzione diretta della pipeline semantica
+python -m makima_lab query "rilasceremo la nuova feature questa settimana?"
+
+# Dalla CLI Makima (eseguibile Rust)
+makima query "riusciremo a completare i test unitari entro 3 giorni?"
+```
+
