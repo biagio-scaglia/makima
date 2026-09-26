@@ -54,5 +54,7 @@ Thumbs.db
 *.pt
 *.pth
 *.bin
-
-
+# Node & Frontend
+node_modules/
+dist/
+.vite/

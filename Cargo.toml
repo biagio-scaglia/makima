@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/makima-core",
     "crates/makima-cli",
+    "crates/makima-gui/src-tauri",
 ]
 
 [workspace.package]
