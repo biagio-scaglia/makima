@@ -300,10 +300,8 @@ impl MakimaEngine {
     /// Genera il report di valutazione delle performance previsionali (Brier Score, Skill Score, ECE).
     #[must_use]
     pub fn evaluate_performance(&self) -> Option<EvaluationReport> {
-        self.evaluator.evaluate_with_ledger(
-            self.ledger.total_count(),
-            self.ledger.pending_count(),
-        )
+        self.evaluator
+            .evaluate_with_ledger(self.ledger.total_count(), self.ledger.pending_count())
     }
 }
 

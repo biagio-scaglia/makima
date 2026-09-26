@@ -320,9 +320,18 @@ impl MakimaDb {
             for f in &store.forecasts {
                 let (status_str, outcome, brier, bucket, res_ts) = match &f.status {
                     ForecastStatus::Pending => ("PENDING", None, None, None, None),
-                    ForecastStatus::Resolved { actual, brier_score, calibration_bucket, resolved_at_sec } => {
-                        ("RESOLVED", Some(if *actual { 1 } else { 0 }), Some(*brier_score), Some(calibration_bucket.as_str()), Some(*resolved_at_sec))
-                    }
+                    ForecastStatus::Resolved {
+                        actual,
+                        brier_score,
+                        calibration_bucket,
+                        resolved_at_sec,
+                    } => (
+                        "RESOLVED",
+                        Some(if *actual { 1 } else { 0 }),
+                        Some(*brier_score),
+                        Some(calibration_bucket.as_str()),
+                        Some(*resolved_at_sec),
+                    ),
                 };
                 let _ = self.conn.execute(
                     "INSERT INTO forecast_ledger (id, target, created_at_sec, probability, window_desc, evidence_count, model_name, status, outcome, brier_score, calibration_bucket, resolved_at_sec) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",

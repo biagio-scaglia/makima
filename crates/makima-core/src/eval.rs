@@ -215,13 +215,21 @@ impl fmt::Display for EvaluationReport {
             f,
             "║  • BSS (vs 50% Baseline):   {:<+6.2}% {:<25} ║",
             self.brier_skill_score * 100.0,
-            if self.brier_skill_score > 0.0 { "(Supera baseline)" } else { "(Inferiore)" }
+            if self.brier_skill_score > 0.0 {
+                "(Supera baseline)"
+            } else {
+                "(Inferiore)"
+            }
         )?;
         writeln!(
             f,
             "║  • BSS (vs Climatology):    {:<+6.2}% {:<25} ║",
             self.brier_skill_score_climatological * 100.0,
-            if self.brier_skill_score_climatological > 0.0 { "(Supera climatologia)" } else { "(Inferiore)" }
+            if self.brier_skill_score_climatological > 0.0 {
+                "(Supera climatologia)"
+            } else {
+                "(Inferiore)"
+            }
         )?;
         writeln!(
             f,
@@ -392,7 +400,11 @@ impl Evaluator {
 
     /// Calcola il report statistico completo integrando il conteggio del ledger delle previsioni.
     #[must_use]
-    pub fn evaluate_with_ledger(&self, total_forecasts: usize, pending_count: usize) -> Option<EvaluationReport> {
+    pub fn evaluate_with_ledger(
+        &self,
+        total_forecasts: usize,
+        pending_count: usize,
+    ) -> Option<EvaluationReport> {
         if self.pairs.is_empty() {
             return None;
         }
@@ -422,7 +434,12 @@ impl Evaluator {
         // Calcolo baseline climatologica: p_clim = sum(y)/n
         let p_clim_val = (sum_outcomes / n).clamp(0.0001, 0.9999);
         let p_clim = Probability::from_clamped(p_clim_val);
-        let clim_brier: f64 = self.pairs.iter().map(|&(_, y)| Scoring::brier_score(p_clim, y)).sum::<f64>() / n;
+        let clim_brier: f64 = self
+            .pairs
+            .iter()
+            .map(|&(_, y)| Scoring::brier_score(p_clim, y))
+            .sum::<f64>()
+            / n;
         let bss_clim = Scoring::brier_skill_score(mean_brier, clim_brier);
 
         let bins = self.calibration_bins(5);

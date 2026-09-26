@@ -64,7 +64,12 @@ impl fmt::Display for ForecastStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Pending => write!(f, "PENDING"),
-            Self::Resolved { actual, brier_score, calibration_bucket, .. } => {
+            Self::Resolved {
+                actual,
+                brier_score,
+                calibration_bucket,
+                ..
+            } => {
                 write!(
                     f,
                     "RESOLVED (outcome={}, brier={:.4}, bucket={})",

@@ -137,7 +137,9 @@ pip install -e ".[dev,research]"
 
 Il progetto include due script batch ottimizzati:
 
-- **`.\avvio.bat` (Consigliato per uso quotidiano)**:
+- **`.\gui.bat` (Interfaccia Grafica Desktop)**:
+  Avvia la dashboard desktop nativa ultra-leggera sviluppata con **Tauri v2** (< 50 MB di RAM), con visualizzazione interattiva su Canvas delle curve di densità Beta $P(p)$, intervalli di credibilità, inserimento evidenze e chat integrata.
+- **`.\avvio.bat` (Consigliato per uso quotidiano CLI)**:
   Avvio istantaneo a latenza zero (**< 300 ms**). Utilizza direttamente il binario precompilato ed entra subito nella console interattiva senza rieseguire la pesante suite di test.
 - **`.\start.bat`**:
   Avvio completo con esecuzione preventiva dei 40+ unit test e benchmark di laboratorio prima di entrare nella console.

@@ -71,7 +71,9 @@ fn print_help() {
     println!("    predict <target>      Genera una previsione probabilistica interpretabile");
     println!("    observe <target> <v>  Registra un'osservazione storica (1/0 o true/false)");
     println!("    outcome <target> <v>  Registra l'esito reale (Ground Truth) e valuta la stima");
-    println!("    forecasts             Mostra il registro del ciclo di vita delle previsioni emesse");
+    println!(
+        "    forecasts             Mostra il registro del ciclo di vita delle previsioni emesse"
+    );
     println!("    targets               Mostra la dashboard di tutti i target monitorati");
     println!("    mail                  Genera il bollettino previsionale Laplace Mail");
     println!("    evaluate              Mostra il report di accuratezza e Brier Skill Score");
@@ -185,7 +187,9 @@ fn handle_forecasts() {
     println!("\n=========================================================================================================");
     println!("                                   MAKIMA FORECAST LIFECYCLE LEDGER                                      ");
     println!("=========================================================================================================");
-    println!("ID    | Target             | Prob   | Window    | Evid | Model              | Status");
+    println!(
+        "ID    | Target             | Prob   | Window    | Evid | Model              | Status"
+    );
     println!("------+--------------------+--------+-----------+------+--------------------+----------------------------");
 
     if records.is_empty() {

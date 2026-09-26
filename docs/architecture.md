@@ -39,14 +39,20 @@ makima/
 ├── pyproject.toml              # Packaging e dipendenze del laboratorio scientifico Python
 ├── avvio.bat                   # Launcher rapido Windows a latenza zero (<300ms, senza test)
 ├── start.bat                   # Launcher Windows con suite di verifica completa
+├── gui.bat                     # Launcher Desktop GUI Tauri v2 (Chat, Grafici, SQLite)
 │
 ├── crates/
 │   ├── makima-core/            # Dominio fondazionale, inferenza bayesiana, Poisson, SQLite WAL
 │   │   ├── Cargo.toml
 │   │   └── src/                # lib.rs, eval.rs, forecast.rs, storage.rs, laplace.rs, prob/
-│   └── makima-cli/             # Interfaccia CLI ad alte prestazioni (main.rs, eyes.rs)
-│       ├── Cargo.toml
-│       └── src/
+│   ├── makima-cli/             # Interfaccia CLI ad alte prestazioni (main.rs, eyes.rs)
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   └── makima-gui/             # Interfaccia Grafica Desktop nativa Tauri v2 & Frontend Vite
+│       ├── package.json
+│       ├── index.html
+│       ├── src/                # main.js, style.css (Dashboard, Canvas Beta curve, Chat)
+│       └── src-tauri/          # Backend Rust IPC (lib.rs, main.rs, tauri.conf.json)
 │
 ├── python/
 │   └── makima_lab/             # Laboratorio scientifico e ricerca NLP
