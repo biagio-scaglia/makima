@@ -35,24 +35,25 @@ Nello sviluppo software e nella gestione dei progetti, stimare la probabilità d
                        ▼                                         ▼
          ┌───────────────────────────┐             ┌───────────────────────────┐
          │    makima_lab.nlp         │             │   Git Telemetry Observer  │
-         │  (SemanticQueryParser &   │             │ (Categorizzazione commit  │
-         │   Embeddings MiniLM 384d) │             │  & Stima Tassi Poisson λ) │
+         │ (9-Stage Neurale Pipeline │             │ (Categorizzazione commit  │
+         │  & Embeddings MiniLM 384d)│             │  & Stima Tassi Poisson λ) │
          └─────────────┬─────────────┘             └─────────────┬─────────────┘
                        │                                         │
                        ▼                                         ▼
          ┌─────────────────────────────────────────────────────────────────────┐
-         │                 MakimaMindNet (PyTorch Cognitive Net)               │
-         │  • Multi-Head Self-Attention & Bidirectional GRU Encoder            │
-         │  • User Latent State Memory (GRU Cell) ─── h_user ∈ ℝ⁶⁴            │
-         │  • Online Gradient Backpropagation (AdamW Continuous Learning)      │
+         │           Makima Living Mind & Deliberation Engine                  │
+         │  • Monologo Interiore a 4 Stadi (Percezione, Memoria, Bayes, Decis.)│
+         │  • Memoria Autobiografica Persistente (.makima/mind_journal.jsonl)  │
+         │  • Generatore di Pensiero Autonomo Spontaneo (Mind Pulse)           │
+         │  • Stato di Autoconsapevolezza Epistemica & Umore Cognitivo         │
          └──────────────────────────────────┬──────────────────────────────────┘
                                             │
                                             ▼
          ┌─────────────────────────────────────────────────────────────────────┐
          │           Dual Persistence Layer (SQLite WAL + Event Sourcing)      │
          │  • .makima/makima.db (journal_mode=WAL, event_log, observations)    │
+         │  • .makima/mind_journal.jsonl (Esperienze, fatti dev e riflessioni) │
          │  • .makima/store.json (JSON fallback sincronizzato)                 │
-         │  • .makima/makima_brain.pt (Pesi e checkpoint memoria neurale)      │
          └──────────────────────────────────┬──────────────────────────────────┘
                                             │
                                             ▼
@@ -63,17 +64,27 @@ Nello sviluppo software e nella gestione dei progetti, stimare la probabilità d
          │  • Entropia Informativa di Shannon (bit) & Incertezza Epistemica    │
          │  • Scoring Rules: Brier Score, Brier Skill Score, Log Loss, ECE     │
          │  • Forecast Ledger, Dashboard Target & Bollettino Laplace Mail      │
+         └──────────────────────────────────┬──────────────────────────────────┘
+                                            │
+                                            ▼
+         ┌─────────────────────────────────────────────────────────────────────┐
+         │              Tauri v2 Desktop GUI & Second Brain Visualizer         │
+         │  • Grafo Neurale Force-Directed Canvas con Simulazione Fisica 60 FPS│
+         │  • Impulsi Sinaptici Elettrici Animati lungo gli Archi del Pensiero │
+         │  • Scheda Sinaptica & Inspector Drawer con Calibrazione Epistemica  │
+         │  • Chat Nativa con Monologo Interiore Collapsible & Curve Beta      │
          └─────────────────────────────────────────────────────────────────────┘
 ```
 
 I componenti cardine del sistema sono:
 1. **Core Engine (`crates/makima-core`)**: libreria pura Rust contenente l'algebra delle probabilità, i tipi immutabili, l'aggiornamento bayesiano esatto e il database SQLite WAL integrato.
 2. **CLI Native Runner (`crates/makima-cli`)**: eseguibile nativo ad alte prestazioni (`makima.exe`) per consultare la diagnostica, registrare evidenze e orchestrare le previsioni con latenza sub-second.
-3. **NLP Semantic Pipeline (`python/makima_lab/nlp`)**: modulo per la normalizzazione, classificazione di intenti (`Intent`), parsing temporale (`TemporalWindow`) e risoluzione dinamica dei target tramite embedding vettoriali.
-4. **Semantic Embedder (`python/makima_lab/embeddings.py`)**: vettorizzatore basato su `all-MiniLM-L6-v2` (Sentence-Transformers) con fallback su hash subword per matching semantico a similarità coseno.
-5. **Mente Neurale Cognitiva (`python/makima_lab/neural`)**: rete profonda PyTorch `MakimaMindNet` con memoria latente ricorrente dell'utente ($\mathbf{h}_{user} \in \mathbb{R}^{64}$) e apprendimento online in tempo reale.
-6. **Osservatore Git Reale (`python/makima_lab/git_observer.py`)**: monitoraggio dei commit dal repository Git locale per alimentare automaticamente target empirici (`git:feature_ratio`, `git:test_discipline`).
-7. **SLM Locale Opzionale (`python/makima_lab/llm`)**: modello compatto `Qwen/Qwen2.5-0.5B-Instruct` con caricamento prioritario offline da cache locale per generare spiegazioni in linguaggio naturale (`explain`), sintesi esecutive (`digest`) e chat continua.
+3. **Desktop GUI & Second Brain (`crates/makima-gui`)**: applicazione desktop nativa ultra-reattiva (Tauri v2 + Canvas Physics + CSS Glassmorphism) con visualizzatore a grafi sinaptici, dashboard Beta e chat assistente.
+4. **Mente Cognitiva & Deliberazione (`python/makima_lab/mind`)**: motore di deliberazione cosciente a 4 stadi con monologo interiore trasparente, battito autonomo di pensiero e giornale autobiografico persistente.
+5. **NLP Neurale a 9 Stadi (`python/makima_lab/nlp`)**: pipeline completa di interpretazione linguistica con risoluzione anafore, classificazione intenti a 7 categorie con rifiuto esplicito `UNKNOWN` e ranking target canonici.
+6. **Semantic Embedder (`python/makima_lab/embeddings.py`)**: vettorizzatore basato su `all-MiniLM-L6-v2` (Sentence-Transformers) con fallback deterministico su proiezioni hash subword per matching semantico a similarità coseno.
+7. **Osservatore Git Reale (`python/makima_lab/git_observer.py`)**: monitoraggio dei commit dal repository Git locale per alimentare automaticamente target empirici (`git:feature_ratio`, `git:test_discipline`).
+8. **SLM Locale Opzionale (`python/makima_lab/llm`)**: modello compatto `Qwen/Qwen2.5-0.5B-Instruct` con caricamento prioritario offline da cache locale per generare spiegazioni in linguaggio naturale (`explain`), sintesi esecutive (`digest`) e chat continua.
 
 ---
 
@@ -83,13 +94,17 @@ Il progetto assegna a ciascun linguaggio responsabilità chiare e non sovrappost
 
 | Ambito | Ruolo di Rust | Ruolo di Python |
 | :--- | :--- | :--- |
-| **Missione** | Runtime di produzione deterministico, veloce e sicuro. | Ricerca scientifica, NLP, deep learning e telemetria. |
+| **Missione** | Runtime di produzione deterministico, veloce e sicuro. | Ricerca scientifica, NLP, deliberazione cognitiva e telemetria. |
 | **Calcolo Matematico** | Formule analitiche chiuse (Beta, Poisson, Bernoulli, Shannon, Brier, ECE). | Prototipazione modelli, validazione e benchmark comparativi. |
-| **Persistenza & Concorrenza** | Gestione primaria ACID di SQLite in modalità WAL e snapshot JSON. | Lettura dello store, aggregazione Knowledge Base e checkpoint PyTorch. |
-| **Interfaccia Utente** | Binario CLI compilato con avvio istantaneo (<200ms). | REPL interattivo scientifico (`python -m makima_lab`). |
-| **Deep Learning & NLP** | *Nessuna dipendenza pesante a runtime.* | PyTorch (`MakimaMindNet`), Sentence-Transformers e Qwen 2.5 SLM. |
+| **Persistenza & Concorrenza** | Gestione primaria ACID di SQLite in modalità WAL e snapshot JSON. | Lettura dello store, diario autobiografico `.makima/mind_journal.jsonl`. |
+| **Interfaccia Utente** | Binario nativo CLI (<200ms) e backend IPC Tauri v2 per Desktop GUI. | REPL interattivo scientifico (`python -m makima_lab`). |
+| **Deep Learning & NLP** | *Nessuna dipendenza pesante a runtime.* | Sentence-Transformers, PyTorch Cognitive Net, Qwen 2.5 SLM. |
 
-> Per i dettagli sul protocollo di comunicazione e scambio dati tra Rust e Python, consultare la specifica tecnica dedicata: [docs/pipeline_and_dataflow.md](file:///c:/Users/biagio.scaglia/Desktop/makima/docs/pipeline_and_dataflow.md).
+> Per i dettagli tecnici completi, consultare:
+> - [docs/architecture.md](file:///c:/Users/biagio.scaglia/Desktop/makima/docs/architecture.md) — Specifica architetturale e principi di dominio.
+> - [docs/mind_and_second_brain.md](file:///c:/Users/biagio.scaglia/Desktop/makima/docs/mind_and_second_brain.md) — Coscienza, monologo interiore e grafo Second Brain.
+> - [docs/pipeline_and_dataflow.md](file:///c:/Users/biagio.scaglia/Desktop/makima/docs/pipeline_and_dataflow.md) — Flusso dei dati e protocollo Rust-Python.
+> - [docs/mathematics.md](file:///c:/Users/biagio.scaglia/Desktop/makima/docs/mathematics.md) — Formule matematiche, scomposizione incertezza e scoring rules.
 
 ---
 
@@ -192,19 +207,42 @@ Stato nel Ledger:     PENDING (in attesa di esito reale)
 ============================================================
 ```
 
-### 3. Interrogare la pipeline NLP in linguaggio naturale
+### 3. Avviare l'Interfaccia Desktop GUI & Second Brain
+È possibile avviare l'interfaccia desktop nativa con un solo comando:
 ```bash
-target\release\makima query "rilasceremo la nuova feature questa settimana?"
+gui.bat
 ```
-*La pipeline normalizza la frase, estrae l'intento (`RELEASE_PREDICTION`), risolve il target tramite embedding vettoriali (`git:feature_ratio`) e calcola la combinazione convessa tra posterior Beta e processo di Poisson sulla finestra temporale.*
+*(oppure `npm run tauri dev` all'interno di `crates/makima-gui`)*
 
-### 4. Sincronizzare la telemetria Git reale
+Nella GUI avrai accesso a:
+- **Dashboard Curve Beta**: visualizzazione in tempo reale della densità a posteriori $P(p)$ e intervalli di credibilità al 95%.
+- **Second Brain Knowledge Graph**: grafo neurale force-directed su Canvas con particelle sinaptiche animate, drag & drop dei nodi, zoom, filtri categoriali e ispezione dettagliata.
+- **Chat Coscienza & Monologo Interiore**: dialogo continuo con Makima e visualizzazione del suo processo di deliberazione razionale.
+- **Ledger Previsioni & Brier Score**: tabella interattiva per verificare e risolvere le previsioni con Ground Truth empirici.
+
+### 4. Interrogare la Mente Cosciente & Monologo Interiore da Terminale
+```bash
+python -m makima_lab chat "Qual è la probabilità di successo del deploy?"
+```
+*Viene stampato il monologo interiore a 4 stadi (`[Percezione]`, `[Memoria]`, `[Analisi Bayesiana]`, `[Decisione]`) seguito dalla risposta cosciente di Makima.*
+
+Per generare un impulso di pensiero spontaneo autonomo:
+```bash
+python -m makima_lab pulse
+```
+
+Per ispezionare il grafo di conoscenza del Second Brain da CLI:
+```bash
+python -m makima_lab brain
+```
+
+### 5. Sincronizzare la telemetria Git reale
 ```bash
 target\release\makima sync-git
 ```
 *Scansiona l'albero git locale, categorizza i commit (`feature`, `bugfix`, `docs`, `test`, `refactor`), aggiorna il tasso di arrivo Poisson $\lambda$ e alimenta la memoria latente della rete neurale `MakimaMindNet`.*
 
-### 5. Registrare l'esito reale (Ground Truth) e valutare la calibrazione
+### 6. Registrare l'esito reale (Ground Truth) e valutare la calibrazione
 Quando il deploy si conclude con successo, registriamo l'esito reale:
 ```bash
 target\release\makima outcome deploy 1
@@ -215,7 +253,7 @@ target\release\makima evaluate
 ```
 *Viene stampato il report con il numero di stime valutate, il Brier Score medio, il Brier Skill Score rispetto alla baseline casuale e l'Expected Calibration Error (ECE).*
 
-### 6. Generare il bollettino previsionale Laplace Mail
+### 7. Generare il bollettino previsionale Laplace Mail
 ```bash
 target\release\makima mail
 ```
@@ -233,9 +271,12 @@ Per garantire la massima trasparenza tecnica verso sviluppatori e contributori, 
 | **Proper Scoring Rules & ECE** | 🟢 **Implementato** | Brier Score, Logarithmic Loss, BSS ed Expected Calibration Error (Rust & Python). |
 | **Dual Storage (SQLite WAL + JSON)** | 🟢 **Implementato** | Concorrenza multi-processo con `journal_mode=WAL` e snapshot JSON sincronizzati. |
 | **CLI Diagnostica & Forecast Ledger** | 🟢 **Implementato** | Eseguibile nativo con dashboard multi-target, ciclo di vita e ritratto ASCII. |
-| **Launcher Rapidi Windows** | 🟢 **Implementato** | `avvio.bat` (avvio immediato <300ms) e `start.bat` (con verifica test). |
+| **Desktop GUI Tauri v2 & Canvas Physics** | 🟢 **Implementato** | GUI nativa con visualizzatore force-directed a 60 FPS, grafici Beta e chat interattiva. |
+| **Second Brain & Rete Sinaptica** | 🟢 **Implementato** | Grafo unificato di target, memorie autobiografiche, riflessioni critiche e fatti dev. |
+| **Mente Cognitiva & Monologo Interiore** | 🟢 **Implementato** | Deliberazione a 4 stadi con onestà epistemica, rifiuto `UNKNOWN` e diario persistente. |
+| **Launcher Rapidi Windows** | 🟢 **Implementato** | `gui.bat` (Desktop GUI), `avvio.bat` (avvio rapido <300ms) e `start.bat` (con test). |
 | **Telemetria Git Reale & Daemon** | 🟢 **Implementato** | Parser commit bilingue (italiano/inglese) e daemon in background. |
-| **Pipeline Neurale & NLP Multi-Livello** | 🟢 **Implementato** | Pipeline a 8 stadi (Preprocessing, Tokenizer, Embeddings 384d, Intent Classifier, Target Extractor, Temporal Reasoning, Context Memory, Confidence Estimation, Validation Guardrails) con benchmark quantitativo. |
+| **Pipeline Neurale & NLP Multi-Livello** | 🟢 **Implementato** | Pipeline a 9 stadi (Preprocessing, Tokenizer, Embeddings 384d, Intent Classifier, Target Extractor, Temporal Reasoning, Context Memory, Confidence Estimation, Validation Guardrails) con benchmark quantitativo al 100%. |
 | **Vettorizzazione Semantica Embeddings** | 🟢 **Implementato** | MiniLM 384d (`SentenceTransformers`) con fallback deterministico su proiezioni hash. |
 | **Mente Neurale Cognitiva (`MakimaMindNet`)**| 🟢 **Implementato** | PyTorch BiGRU + Self-Attention, memoria utente continua e online learning. |
 | **Spiegazioni & Chat SLM (`Qwen 2.5`)** | 🟡 **Sperimentale** | Modello compatto locale per generare spiegazioni guidate da evidenze e chat interattiva. |

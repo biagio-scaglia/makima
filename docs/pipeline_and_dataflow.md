@@ -74,18 +74,20 @@ Il repository è ripartito rigorosamente tra runtime compilato di produzione (`c
 | Modulo / Crate | Percorso | Responsabilità Primaria |
 | :--- | :--- | :--- |
 | **`makima-core`** | `crates/makima-core/` | **Nucleo di dominio e calcolo probabilistico**: definisce entità immutabili (`Observation`, `ObservationId`), distribuzioni analitiche (`Bernoulli`, `BetaDistribution`, `PoissonDistribution`), motore centrale (`MakimaEngine`), valutatore statistico (`Evaluator`, `Scoring`), ledger delle previsioni (`ForecastLedger`) e layer di persistenza nativo (`MakimaStore`, `MakimaDb`). |
-| **`makima-cli`** | `crates/makima-cli/` | **Interfaccia da riga di comando ad alte prestazioni**: parsing dei comandi del terminale, visualizzazione diagnostica, rendering del ritratto ASCII di Makima, dispatch dei comandi previdenziali e ponte di esecuzione verso i sottoprocessi Python del laboratorio. |
+| **`makima-cli`** | `crates/makima-cli/` | **Interfaccia da riga di comando nativa**: parsing dei comandi del terminale, visualizzazione diagnostica, rendering del ritratto ASCII di Makima, dispatch dei comandi previdenziali e ponte verso il laboratorio Python. |
+| **`makima-gui`** | `crates/makima-gui/` | **Interfaccia Desktop Nativa Tauri v2 & Frontend Canvas**: dashboard interattiva delle curve Beta, monitoraggio ledger previsioni, chat con monologo interiore, e **Second Brain Canvas Visualizer** con simulazione fisica force-directed e gestione memorie in tempo reale. |
 
 ### 2.2 Moduli Python (`python/makima_lab/`)
 
 | Sottosistema | Percorso | Responsabilità Primaria |
 | :--- | :--- | :--- |
-| **`makima_lab.nlp`** | `python/makima_lab/nlp/` | **Analisi del linguaggio naturale**: normalizzazione semantica del testo, classificazione degli intenti (`Intent`), estrazione di orizzonti temporali (`TemporalWindow`), risoluzione automatica del target tramite embedding vettoriali e orchestrazione della pipeline previsionale (`SemanticForecastPipeline`). |
-| **`makima_lab.embeddings`** | `python/makima_lab/embeddings.py` | **Vettorizzazione semantica densa**: genera embedding a 384 dimensioni mediante Sentence-Transformers (`all-MiniLM-L6-v2`) con fallback deterministico su proiezioni hash subword; calcola la similarità coseno per associare query utente a target reali del database. |
+| **`makima_lab.mind`** | `python/makima_lab/mind/` | **Mente Cognitiva, Coscienza & Second Brain**: motore di deliberazione a 4 stadi (`MindDeliberationEngine`), memoria autobiografica persistente (`EpisodicMemoryStore`), battito autonomo di pensiero (`AutonomousMindPulse`), e costruttore del grafo di conoscenza sinaptico (`SecondBrainBuilder`). |
+| **`makima_lab.nlp`** | `python/makima_lab/nlp/` | **Pipeline Neurale NLP a 9 Livelli**: preprocessing, tokenizzazione con lemmi composti, embedding densi normalizzati (384d), classificazione intenti a 7 categorie con rifiuto esplicito `UNKNOWN`, ranking dei target canonici, risoluzione anafore a finestra mobile $K=5$, stima convessa della confidenza e guardrail di validazione. |
+| **`makima_lab.embeddings`** | `python/makima_lab/embeddings.py` | **Vettorizzazione semantica densa**: genera embedding a 384 dimensioni mediante Sentence-Transformers (`all-MiniLM-L6-v2`) con caricamento locale prioritario e fallback deterministico su proiezioni hash subword; calcola la similarità coseno per associare query utente a target reali del database. |
 | **`makima_lab.neural`** | `python/makima_lab/neural/` | **Rete Neurale Cognitiva (`MakimaMindNet`)**: architettura PyTorch con BiGRU, Multi-Head Self-Attention, cella di memoria latente ricorrente dell'utente ($\mathbf{h}_{user} \in \mathbb{R}^{64}$), classificazione multi-task e apprendimento online continuo (AdamW). |
 | **`makima_lab.git_observer`** | `python/makima_lab/git_observer.py` | **Telemetria Git reale & Daemon**: estrazione dello storico dei commit dal repository, categorizzazione semantica (italiano/inglese), stima empirica della frequenza Poisson ($\lambda$) e monitoraggio in background per nuovi commit. |
 | **`makima_lab.llm`** | `python/makima_lab/llm/` | **Ragionamento e spiegazione con Small Language Model (SLM)**: inferenza locale su `Qwen/Qwen2.5-0.5B-Instruct` con caricamento offline prioritario da cache, generazione di spiegazioni trasparenti delle formule (`explain`), sintesi esecutive (`digest`) e sessione chat interattiva continua (`chat`). |
-| **`makima_lab.storage`** | `python/makima_lab/storage.py` | **Astrazione storage lato Python**: interfacciamento con `.makima/makima.db` (SQLite WAL) e `.makima/store.json`, calcolo della Knowledge Base e registrazione di voci di diario. |
+| **`makima_lab.storage`** | `python/makima_lab/storage.py` | **Astrazione storage lato Python**: interfacciamento con `.makima/makima.db` (SQLite WAL), `.makima/mind_journal.jsonl` e `.makima/store.json`. |
 
 ### 2.3 Modulo di Validazione Sperimentale (`experiments/`)
 

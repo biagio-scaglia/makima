@@ -55,8 +55,9 @@ makima/
 │       └── src-tauri/          # Backend Rust IPC (lib.rs, main.rs, tauri.conf.json)
 │
 ├── python/
-│   └── makima_lab/             # Laboratorio scientifico e ricerca NLP
-│       ├── nlp/                # SemanticQueryParser, ForecastQuery, Intent, TemporalWindow
+│   └── makima_lab/             # Laboratorio scientifico, NLP e Coscienza Cognitiva
+│       ├── mind/               # Deliberazione, Monologo Interiore, Memoria Episodica, Second Brain
+│       ├── nlp/                # Pipeline neurale a 9 stadi (preprocessing, embeddings, intent, confidence)
 │       ├── neural/             # MakimaMindNet (PyTorch Self-Attention & Latent Memory)
 │       ├── llm/                # QwenCognitiveEngine (SLM locale 0.5B per explain e chat)
 │       ├── embeddings.py       # SemanticEmbedder (SentenceTransformers & Cosine Matching)
@@ -71,14 +72,17 @@ makima/
 │
 ├── docs/                       # Documentazione tecnica, architetturale e matematica
 │   ├── architecture.md         # Specifica architetturale e principi di dominio
+│   ├── mind_and_second_brain.md# Coscienza vivente, monologo interiore e grafo Second Brain
 │   ├── mathematics.md          # Fondamenti matematici, formule e scoring rules
-│   └── pipeline_and_dataflow.md # Flusso dati end-to-end, moduli e protocollo Rust-Python
+│   └── pipeline_and_dataflow.md# Flusso dati end-to-end, moduli e protocollo Rust-Python
 │
 ├── scripts/                    # Script di automazione e verifica qualità (check.ps1, check.sh)
 └── tests/                      # Suite di unit test e integrazione Rust & Python
 ```
 
-> Per una descrizione dettagliata del flusso dei dati attraverso tutti i componenti e del protocollo di comunicazione tra Rust e Python, consultare [docs/pipeline_and_dataflow.md](file:///c:/Users/biagio.scaglia/Desktop/makima/docs/pipeline_and_dataflow.md).
+> Documentazione di dettaglio:
+> - Per il flusso dati end-to-end e il protocollo Rust-Python: [docs/pipeline_and_dataflow.md](file:///c:/Users/biagio.scaglia/Desktop/makima/docs/pipeline_and_dataflow.md).
+> - Per l'architettura della mente, monologo interiore e Second Brain: [docs/mind_and_second_brain.md](file:///c:/Users/biagio.scaglia/Desktop/makima/docs/mind_and_second_brain.md).
 
 ---
 
