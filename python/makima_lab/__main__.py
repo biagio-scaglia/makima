@@ -67,15 +67,26 @@ def handle_explain(target_name: str) -> None:
 def handle_digest() -> None:
     """Genera un bollettino esecutivo di forecasting tramite Qwen 2.5."""
     from makima_lab.llm import get_llm_engine
+    from makima_lab.storage import load_store, compute_knowledge_base_from_store
+
     engine = get_llm_engine()
-    sample_targets = [
-        {"name": "git:feature_ratio", "prob": 0.73, "obs": 37},
-        {"name": "deploy", "prob": 0.80, "obs": 18},
-        {"name": "bug_fix_rate", "prob": 0.65, "obs": 12},
-    ]
+    store = load_store()
+    kb = compute_knowledge_base_from_store(store)
+    
+    if kb:
+        sample_targets = [
+            {"name": target, "prob": round(data["successes"] / max(1, data["successes"] + data["failures"]), 2), "obs": data["successes"] + data["failures"]}
+            for target, data in kb.items()
+        ]
+    else:
+        sample_targets = [
+            {"name": "git:feature_ratio", "prob": 0.50, "obs": 0},
+            {"name": "deploy", "prob": 0.50, "obs": 0},
+        ]
+        
     print("\n[ Makima Laplace Executive Digest (Qwen 2.5 SLM) ]")
     print("===================================================")
-    digest = engine.generate_digest(sample_targets, brier_score=0.1429, ece=0.0492)
+    digest = engine.generate_digest(sample_targets)
     print(digest)
     print("===================================================\n")
 

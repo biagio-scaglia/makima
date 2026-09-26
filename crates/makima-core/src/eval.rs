@@ -100,6 +100,8 @@ impl Scoring {
 /// Valutazione qualitativa della calibrazione statistica basata su soglie ECE formali.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CalibrationRating {
+    /// Campione ridotto (N < 10): calibrazione non statisticamente significativa.
+    InsufficientData,
     /// ECE < 3.0%: Calibrazione eccellente.
     Excellent,
     /// ECE < 6.0%: Calibrazione buona.
@@ -113,6 +115,7 @@ pub enum CalibrationRating {
 impl fmt::Display for CalibrationRating {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InsufficientData => write!(f, "INSUFFICIENT DATA (N < 10, stima instabile)"),
             Self::Excellent => write!(f, "EXCELLENT (ECE < 3%)"),
             Self::Good => write!(f, "GOOD (ECE < 6%)"),
             Self::Moderate => write!(f, "MODERATE (ECE < 12%)"),
@@ -457,7 +460,9 @@ impl Evaluator {
             }
         }
 
-        let rating = if weighted_error_sum < 0.030 {
+        let rating = if self.pairs.len() < 10 {
+            CalibrationRating::InsufficientData
+        } else if weighted_error_sum < 0.030 {
             CalibrationRating::Excellent
         } else if weighted_error_sum < 0.060 {
             CalibrationRating::Good

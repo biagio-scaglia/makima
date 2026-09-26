@@ -171,6 +171,33 @@ impl MakimaEngine {
             .push(Outcome::new(target_str, occurred, timestamp_sec));
     }
 
+    /// Risolve una singola previsione univoca specificata tramite `ForecastId` registrando l'esito e valutando il Brier Score.
+    pub fn resolve_forecast_by_id(
+        &mut self,
+        id: ForecastId,
+        occurred: bool,
+        timestamp_sec: i64,
+        ground_truth_event_id: Option<u64>,
+    ) -> bool {
+        let record_opt = self.ledger.records().iter().find(|r| r.id == id).cloned();
+        if let Some(rec) = record_opt {
+            if matches!(rec.status, ForecastStatus::Pending) {
+                self.evaluator
+                    .add_prediction_outcome(rec.probability, occurred);
+                let resolved = self.ledger.resolve_by_id_with_event(
+                    id,
+                    occurred,
+                    timestamp_sec,
+                    ground_truth_event_id,
+                );
+                self.outcomes
+                    .push(Outcome::new(rec.target, occurred, timestamp_sec));
+                return resolved;
+            }
+        }
+        false
+    }
+
     /// Registra formalmente una nuova previsione nel ledger con stato `Pending`.
     pub fn register_forecast_in_ledger(
         &mut self,

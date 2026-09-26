@@ -227,7 +227,8 @@ impl MakimaDb {
                 outcome INTEGER,
                 brier_score REAL,
                 calibration_bucket TEXT,
-                resolved_at_sec INTEGER
+                resolved_at_sec INTEGER,
+                ground_truth_event_id INTEGER
             );
 
             CREATE TABLE IF NOT EXISTS journal_entries (
@@ -318,23 +319,25 @@ impl MakimaDb {
                 self.insert_outcome(&out.target, out.occurred, out.timestamp_sec, None, None)?;
             }
             for f in &store.forecasts {
-                let (status_str, outcome, brier, bucket, res_ts) = match &f.status {
-                    ForecastStatus::Pending => ("PENDING", None, None, None, None),
+                let (status_str, outcome, brier, bucket, res_ts, gt_id) = match &f.status {
+                    ForecastStatus::Pending => ("PENDING", None, None, None, None, None),
                     ForecastStatus::Resolved {
                         actual,
                         brier_score,
                         calibration_bucket,
                         resolved_at_sec,
+                        ground_truth_event_id,
                     } => (
                         "RESOLVED",
                         Some(if *actual { 1 } else { 0 }),
                         Some(*brier_score),
                         Some(calibration_bucket.as_str()),
                         Some(*resolved_at_sec),
+                        ground_truth_event_id.map(|id| id as i64),
                     ),
                 };
                 let _ = self.conn.execute(
-                    "INSERT INTO forecast_ledger (id, target, created_at_sec, probability, window_desc, evidence_count, model_name, status, outcome, brier_score, calibration_bucket, resolved_at_sec) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                    "INSERT INTO forecast_ledger (id, target, created_at_sec, probability, window_desc, evidence_count, model_name, status, outcome, brier_score, calibration_bucket, resolved_at_sec, ground_truth_event_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                     params![
                         f.id.0 as i64,
                         f.target,
@@ -348,6 +351,7 @@ impl MakimaDb {
                         brier,
                         bucket,
                         res_ts,
+                        gt_id,
                     ],
                 );
             }
@@ -393,7 +397,7 @@ impl MakimaDb {
 
         let mut f_stmt = self
             .conn
-            .prepare("SELECT id, target, created_at_sec, probability, window_desc, evidence_count, model_name, status, outcome, brier_score, calibration_bucket, resolved_at_sec FROM forecast_ledger ORDER BY id ASC")?;
+            .prepare("SELECT id, target, created_at_sec, probability, window_desc, evidence_count, model_name, status, outcome, brier_score, calibration_bucket, resolved_at_sec, ground_truth_event_id FROM forecast_ledger ORDER BY id ASC")?;
 
         let f_iter = f_stmt.query_map([], |row| {
             let id: u64 = row.get(0)?;
@@ -410,11 +414,13 @@ impl MakimaDb {
                 let brier_score = row.get::<_, Option<f64>>(9)?.unwrap_or(0.0);
                 let calibration_bucket = row.get::<_, Option<String>>(10)?.unwrap_or_default();
                 let resolved_at_sec = row.get::<_, Option<i64>>(11)?.unwrap_or(0);
+                let ground_truth_event_id = row.get::<_, Option<i64>>(12)?.map(|id| id as u64);
                 ForecastStatus::Resolved {
                     actual,
                     brier_score,
                     calibration_bucket,
                     resolved_at_sec,
+                    ground_truth_event_id,
                 }
             } else {
                 ForecastStatus::Pending

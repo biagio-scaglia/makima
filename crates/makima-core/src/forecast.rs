@@ -57,6 +57,9 @@ pub enum ForecastStatus {
         calibration_bucket: String,
         /// Timestamp Unix della risoluzione.
         resolved_at_sec: i64,
+        /// Identificativo opzionale dell'evento di Ground Truth associato.
+        #[serde(default)]
+        ground_truth_event_id: Option<u64>,
     },
 }
 
@@ -68,14 +71,20 @@ impl fmt::Display for ForecastStatus {
                 actual,
                 brier_score,
                 calibration_bucket,
+                ground_truth_event_id,
                 ..
             } => {
+                let gt = match ground_truth_event_id {
+                    Some(id) => format!(", event=#{id}"),
+                    None => String::new(),
+                };
                 write!(
                     f,
-                    "RESOLVED (outcome={}, brier={:.4}, bucket={})",
+                    "RESOLVED (outcome={}, brier={:.4}, bucket={}{})",
                     if *actual { "TRUE" } else { "FALSE" },
                     brier_score,
-                    calibration_bucket
+                    calibration_bucket,
+                    gt
                 )
             }
         }
@@ -129,6 +138,16 @@ impl ForecastRecord {
 
     /// Risolve la previsione confrontandola con l'esito reale osservato.
     pub fn resolve(&mut self, actual: bool, resolved_at_sec: i64) {
+        self.resolve_with_event(actual, resolved_at_sec, None);
+    }
+
+    /// Risolve la previsione collegando l'identificativo esatto dell'evento di Ground Truth.
+    pub fn resolve_with_event(
+        &mut self,
+        actual: bool,
+        resolved_at_sec: i64,
+        ground_truth_event_id: Option<u64>,
+    ) {
         let p = self.probability.value();
         let y = if actual { 1.0 } else { 0.0 };
         let brier = (p - y) * (p - y);
@@ -142,6 +161,7 @@ impl ForecastRecord {
             brier_score: brier,
             calibration_bucket: bucket,
             resolved_at_sec,
+            ground_truth_event_id,
         };
     }
 }
@@ -181,6 +201,33 @@ impl ForecastLedger {
         );
         self.records.push(record);
         id
+    }
+
+    /// Risolve una specifica previsione univoca tramite il suo `ForecastId`.
+    pub fn resolve_by_id(
+        &mut self,
+        id: ForecastId,
+        actual: bool,
+        resolved_at_sec: i64,
+    ) -> bool {
+        self.resolve_by_id_with_event(id, actual, resolved_at_sec, None)
+    }
+
+    /// Risolve una specifica previsione univoca tramite `ForecastId` associando il Ground Truth Event.
+    pub fn resolve_by_id_with_event(
+        &mut self,
+        id: ForecastId,
+        actual: bool,
+        resolved_at_sec: i64,
+        event_id: Option<u64>,
+    ) -> bool {
+        for rec in &mut self.records {
+            if rec.id == id && rec.status == ForecastStatus::Pending {
+                rec.resolve_with_event(actual, resolved_at_sec, event_id);
+                return true;
+            }
+        }
+        false
     }
 
     /// Risolve tutte le previsioni pendenti per un target specifico a fronte di un nuovo esito reale.

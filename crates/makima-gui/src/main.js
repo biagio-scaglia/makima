@@ -245,7 +245,7 @@ async function loadLedgerData() {
       const recId = typeof rec.id === 'object' && rec.id !== null ? (rec.id[0] ?? rec.id.toString()) : rec.id;
       const actionCol = isResolved
         ? '<span style="color: #64748b; font-size: 0.75rem;">Chiuso</span>'
-        : `<button class="btn btn-secondary btn-sm" onclick="window.resolveTargetForecast('${rec.target}', true)" style="padding: 2px 6px; font-size: 0.75rem; margin-right: 4px;">✓ Succ</button><button class="btn btn-secondary btn-sm" onclick="window.resolveTargetForecast('${rec.target}', false)" style="padding: 2px 6px; font-size: 0.75rem;">✗ Fall</button>`;
+        : `<button class="btn btn-secondary btn-sm" onclick="window.resolveForecastRecordById(${recId}, '${rec.target}', true)" style="padding: 2px 6px; font-size: 0.75rem; margin-right: 4px;">✓ Succ</button><button class="btn btn-secondary btn-sm" onclick="window.resolveForecastRecordById(${recId}, '${rec.target}', false)" style="padding: 2px 6px; font-size: 0.75rem;">✗ Fall</button>`;
 
       return `
         <tr>
@@ -267,7 +267,18 @@ async function loadLedgerData() {
   }
 }
 
-// Funzione globale per risolvere una previsione con Ground Truth reale
+// Funzione globale per risolvere una previsione specifica per ID con Ground Truth reale
+window.resolveForecastRecordById = async (forecastId, target, occurred) => {
+  if (window.confirm(`Vuoi registrare l'esito reale "${occurred ? 'SUCCESSO' : 'FALLIMENTO'}" per la previsione #${forecastId} (${target})?`)) {
+    try {
+      await invoke("resolve_forecast_by_id", { forecastId: Number(forecastId), occurred });
+      await loadDashboardData();
+    } catch (e) {
+      window.alert("Errore risoluzione previsione: " + e);
+    }
+  }
+};
+
 window.resolveTargetForecast = async (target, occurred) => {
   if (window.confirm(`Vuoi registrare l'esito reale "${occurred ? 'SUCCESSO' : 'FALLIMENTO'}" per il target "${target}"?`)) {
     try {

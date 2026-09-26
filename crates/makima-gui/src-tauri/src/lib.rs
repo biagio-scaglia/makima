@@ -465,6 +465,37 @@ fn resolve_forecast(
     Ok(())
 }
 
+/// Comando IPC: Risolve una specifica previsione univoca tramite ForecastId nel ledger.
+#[tauri::command]
+fn resolve_forecast_by_id(
+    forecast_id: u64,
+    occurred: bool,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
+    let resolved = engine.resolve_forecast_by_id(
+        makima_core::ForecastId(forecast_id),
+        occurred,
+        now,
+        None,
+    );
+
+    if resolved {
+        if let Ok(db) = MakimaDb::open(&state.db_path) {
+            let _ = db.insert_outcome(&format!("forecast_{forecast_id}"), occurred, now, None, None);
+        }
+        let store = MakimaStore::from_engine(&engine);
+        let _ = store.save(MakimaStore::default_path());
+    }
+
+    Ok(resolved)
+}
+
 /// Comando IPC: Sincronizza la telemetria reale dai commit Git del repository.
 #[tauri::command]
 fn sync_git_telemetry(state: State<'_, AppState>) -> Result<usize, String> {
@@ -956,6 +987,7 @@ pub fn run() {
             get_forecast_ledger,
             add_observation,
             resolve_forecast,
+            resolve_forecast_by_id,
             sync_git_telemetry,
             generate_laplace_bulletin,
             query_chat,

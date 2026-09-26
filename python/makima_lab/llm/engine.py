@@ -195,10 +195,15 @@ class QwenCognitiveEngine:
                 for t in open_targets
             ]
         )
+        if brier_score is not None and ece is not None:
+            calib_str = f"Metriche di calibrazione empiriche: Brier Score={brier_score:.4f}, ECE={ece:.4f}."
+        else:
+            calib_str = "Metriche di calibrazione: Dati Ground Truth insufficienti (N < 10 o nessun evento verificato)."
+
         prompt = (
             f"Genera un breve bollettino esecutivo di forecasting per il team di sviluppo:\n"
             f"Target attivi e probabilità correnti:\n{targets_str}\n"
-            f"Metriche di calibrazione globali: Brier Score={brier_score or 0.1429:.4f}, ECE={ece or 0.0492:.4f} (Calibrazione GOOD).\n\n"
+            f"{calib_str}\n\n"
             f"Riassumi in 3 punti chiari lo stato del progetto, quali target hanno maggiore certezza e una raccomandazione."
         )
         return self.generate(prompt, max_new_tokens=250, temperature=0.6)

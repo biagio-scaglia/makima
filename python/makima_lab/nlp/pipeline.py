@@ -167,7 +167,7 @@ class SemanticForecastPipeline:
         target = struct.target
         evidence = self.knowledge_base.get(
             target,
-            {"successes": 1, "failures": 1, "historical_days": 30, "rate_per_day": 1.0 / 30.0},
+            {"successes": 0, "failures": 0, "historical_days": 1, "rate_per_day": 0.0},
         )
 
         prior = BetaDistribution.uniform()
