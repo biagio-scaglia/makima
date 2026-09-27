@@ -315,7 +315,10 @@ impl MakimaDb {
     }
 
     /// Registra un impulso cognitivo generato dalla sorveglianza autonoma.
-    pub fn insert_cognitive_pulse(&self, pulse: &crate::daemon::CognitivePulse) -> rusqlite::Result<()> {
+    pub fn insert_cognitive_pulse(
+        &self,
+        pulse: &crate::daemon::CognitivePulse,
+    ) -> rusqlite::Result<()> {
         let trigger_json = serde_json::to_string(&pulse.trigger).unwrap_or_default();
         let urgency_str = pulse.urgency.to_string();
 
@@ -346,7 +349,10 @@ impl MakimaDb {
     }
 
     /// Recupera gli impulsi cognitivi più recenti memorizzati nel database.
-    pub fn get_recent_pulses(&self, limit: usize) -> rusqlite::Result<Vec<crate::daemon::CognitivePulse>> {
+    pub fn get_recent_pulses(
+        &self,
+        limit: usize,
+    ) -> rusqlite::Result<Vec<crate::daemon::CognitivePulse>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, timestamp_sec, trigger_json, urgency, inner_thought, suggested_action FROM cognitive_pulses ORDER BY timestamp_sec DESC LIMIT ?1"
         )?;
@@ -359,10 +365,12 @@ impl MakimaDb {
             let inner_thought: String = row.get(4)?;
             let suggested_action: Option<String> = row.get(5)?;
 
-            let trigger = serde_json::from_str(&trigger_json).unwrap_or(crate::daemon::PulseTrigger::PeriodicReflection {
-                active_forecasts: 0,
-                observed_targets: 0,
-            });
+            let trigger = serde_json::from_str(&trigger_json).unwrap_or(
+                crate::daemon::PulseTrigger::PeriodicReflection {
+                    active_forecasts: 0,
+                    observed_targets: 0,
+                },
+            );
 
             let urgency = match urgency_str.as_str() {
                 "CRITICAL" => crate::daemon::PulseUrgency::Critical,

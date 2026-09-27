@@ -237,7 +237,11 @@ impl AutonomousWatcher {
             } else {
                 PulseUrgency::Medium
             };
-            let direction = if new_p > prior_p { "aumento" } else { "riduzione" };
+            let direction = if new_p > prior_p {
+                "aumento"
+            } else {
+                "riduzione"
+            };
             let thought = format!(
                 "Attenzione: rilevata deriva epistemica su '{}'. Probabilità in {} da {:.1}% a {:.1}% (Δp: {:+.1}%, ΔEntropia: {:+.3} bit).",
                 target,
@@ -258,7 +262,10 @@ impl AutonomousWatcher {
                 },
                 urgency,
                 thought,
-                Some(format!("Ricalibrare le previsioni dipendenti da '{}' nel Second Brain.", target)),
+                Some(format!(
+                    "Ricalibrare le previsioni dipendenti da '{}' nel Second Brain.",
+                    target
+                )),
             ));
         }
 
@@ -302,7 +309,8 @@ mod tests {
             watcher.process_git_commit(&format!("hash_{i}"), "Dev", "feat: new item", 2, 1000 + i);
         }
         // Huge anomaly commit
-        let anomaly_pulse = watcher.process_git_commit("hash_huge", "Dev", "refactor all", 80, 2000);
+        let anomaly_pulse =
+            watcher.process_git_commit("hash_huge", "Dev", "refactor all", 80, 2000);
         assert!(anomaly_pulse.is_some());
         let pulse = anomaly_pulse.unwrap();
         assert_eq!(pulse.urgency, PulseUrgency::High);

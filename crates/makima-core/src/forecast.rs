@@ -204,12 +204,7 @@ impl ForecastLedger {
     }
 
     /// Risolve una specifica previsione univoca tramite il suo `ForecastId`.
-    pub fn resolve_by_id(
-        &mut self,
-        id: ForecastId,
-        actual: bool,
-        resolved_at_sec: i64,
-    ) -> bool {
+    pub fn resolve_by_id(&mut self, id: ForecastId, actual: bool, resolved_at_sec: i64) -> bool {
         self.resolve_by_id_with_event(id, actual, resolved_at_sec, None)
     }
 

@@ -383,7 +383,12 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
             "Analisi Bayesiana per **{}**:\n\n• Probabilità a posteriori $P(p)$: **{:.1}%** (Successi: {}, Fallimenti: {})\n• Incertezza epistemica (Varianza): **{:.4}**\n• Entropia informativa: **{:.2} bit**\n• Frequenza stimata: **{:.2} eventi/giorno**\n\nIl modello applica la regola di successione di Laplace Beta({:.1}, {:.1}) aggiornata con {} evidenze storiche.",
             target, prob_pct, sum.success_count, sum.failure_count, sum.uncertainty_variance, sum.entropy_bits, sum.estimated_daily_rate, 1.0 + sum.success_count as f64, 1.0 + sum.failure_count as f64, sum.observations_count
         );
-        (text, Some(thought), Some(sum.probability.value()), Some(target))
+        (
+            text,
+            Some(thought),
+            Some(sum.probability.value()),
+            Some(target),
+        )
     } else if q_lower.contains("chi sei") || q_lower.contains("cosa sei") {
         let thought = "1. [Percezione]: Domanda esistenziale sull'identità di Makima.\n2. [Memoria]: Richiamo il principio fondazionale di intelligenza computazionale bayesiana.\n3. [Decisione]: Rispondo in prima persona chiarendo lo scopo analitico e probabilistico.".to_string();
         let text = "Sono **Makima**, un assistente e motore computazionale per il ragionamento bayesiano e la stima probabilistica dell'incertezza. Registro evidenze empiriche (commit, deploy, test) e calcolo distribuzioni di probabilità calibrate per prevedere esiti futuri senza allucinazioni.".to_string();
@@ -480,16 +485,18 @@ fn resolve_forecast_by_id(
         .as_secs() as i64;
 
     let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
-    let resolved = engine.resolve_forecast_by_id(
-        makima_core::ForecastId(forecast_id),
-        occurred,
-        now,
-        None,
-    );
+    let resolved =
+        engine.resolve_forecast_by_id(makima_core::ForecastId(forecast_id), occurred, now, None);
 
     if resolved {
         if let Ok(db) = MakimaDb::open(&state.db_path) {
-            let _ = db.insert_outcome(&format!("forecast_{forecast_id}"), occurred, now, None, None);
+            let _ = db.insert_outcome(
+                &format!("forecast_{forecast_id}"),
+                occurred,
+                now,
+                None,
+                None,
+            );
         }
         let store = MakimaStore::from_engine(&engine);
         let _ = store.save(MakimaStore::default_path());
@@ -736,7 +743,11 @@ fn get_second_brain_graph(state: State<'_, AppState>) -> Result<SecondBrainGraph
             node_id.clone(),
             BrainNodeDto {
                 id: node_id.clone(),
-                label: format!("{} {}", icon, entry.summary.chars().take(28).collect::<String>()),
+                label: format!(
+                    "{} {}",
+                    icon,
+                    entry.summary.chars().take(28).collect::<String>()
+                ),
                 category: cat_str.to_string(),
                 confidence: entry.epistemic_confidence,
                 connections_count: 0,
@@ -801,7 +812,8 @@ fn get_second_brain_graph(state: State<'_, AppState>) -> Result<SecondBrainGraph
     }
 
     // Calcolo grado di connessione
-    let mut conn_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut conn_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     for e in &edges {
         *conn_counts.entry(e.source.clone()).or_insert(0) += 1;
         *conn_counts.entry(e.target.clone()).or_insert(0) += 1;
@@ -817,7 +829,10 @@ fn get_second_brain_graph(state: State<'_, AppState>) -> Result<SecondBrainGraph
     let total_nodes = node_vec.len();
     let targets_count = node_vec.iter().filter(|n| n.category == "target").count();
     let memories_count = node_vec.iter().filter(|n| n.category == "memory").count();
-    let reflections_count = node_vec.iter().filter(|n| n.category == "reflection").count();
+    let reflections_count = node_vec
+        .iter()
+        .filter(|n| n.category == "reflection")
+        .count();
     let facts_count = node_vec.iter().filter(|n| n.category == "fact").count();
 
     let avg_conf: f64 = if total_nodes > 0 {
@@ -926,7 +941,11 @@ fn trigger_spontaneous_thought(state: State<'_, AppState>) -> Result<ChatRespons
         .as_secs() as i64;
 
     let (target_hint, prob_hint, obs_hint) = if let Some(first) = summaries.first() {
-        (first.target.clone(), first.probability.value(), first.observations_count)
+        (
+            first.target.clone(),
+            first.probability.value(),
+            first.observations_count,
+        )
     } else {
         ("core".to_string(), 0.85, 12)
     };
@@ -951,7 +970,11 @@ fn trigger_spontaneous_thought(state: State<'_, AppState>) -> Result<ChatRespons
         content: utterance.clone(),
         associated_target: Some(target_hint.clone()),
         epistemic_confidence: 0.92,
-        tags: vec!["pensiero_spontaneo".to_string(), target_hint.clone(), "autoconsapevolezza".to_string()],
+        tags: vec![
+            "pensiero_spontaneo".to_string(),
+            target_hint.clone(),
+            "autoconsapevolezza".to_string(),
+        ],
     };
 
     let _ = std::fs::create_dir_all(".makima");
@@ -982,7 +1005,9 @@ fn get_autonomous_pulses(
     state: State<'_, AppState>,
 ) -> Result<Vec<makima_core::CognitivePulse>, String> {
     let db = MakimaDb::open(&state.db_path).map_err(|e| e.to_string())?;
-    let pulses = db.get_recent_pulses(limit.unwrap_or(20)).map_err(|e| e.to_string())?;
+    let pulses = db
+        .get_recent_pulses(limit.unwrap_or(20))
+        .map_err(|e| e.to_string())?;
     Ok(pulses)
 }
 
@@ -1018,11 +1043,18 @@ fn trigger_autonomous_heartbeat(
         experience_id: pulse.id.clone(),
         timestamp: now as f64,
         category: "autonomous_reflection".to_string(),
-        summary: format!("Battito di Coscienza (Heartbeat): {} target monitorati", observed_targets),
+        summary: format!(
+            "Battito di Coscienza (Heartbeat): {} target monitorati",
+            observed_targets
+        ),
         content: pulse.inner_thought.clone(),
         associated_target: Some("autonomous_watcher".to_string()),
         epistemic_confidence: 0.95,
-        tags: vec!["coscienza_attiva".to_string(), "heartbeat".to_string(), "autonomia".to_string()],
+        tags: vec![
+            "coscienza_attiva".to_string(),
+            "heartbeat".to_string(),
+            "autonomia".to_string(),
+        ],
     };
 
     let _ = std::fs::create_dir_all(".makima");
@@ -1088,4 +1120,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("errore durante l'esecuzione dell'applicazione Tauri Makima");
 }
-
