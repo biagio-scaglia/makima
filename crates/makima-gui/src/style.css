@@ -1094,3 +1094,53 @@ body {
   font-weight: 500;
 }
 
+/* Second Brain Floating HUD Controls */
+.canvas-hud-controls {
+  position: absolute;
+  bottom: 18px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(10, 15, 29, 0.82);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  backdrop-filter: blur(14px);
+  padding: 6px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+.hud-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.hud-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  transform: scale(1.08);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.hud-btn:active {
+  transform: scale(0.96);
+}
+
+.chip-icon {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
+

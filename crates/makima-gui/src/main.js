@@ -245,7 +245,7 @@ async function loadLedgerData() {
       const recId = typeof rec.id === 'object' && rec.id !== null ? (rec.id[0] ?? rec.id.toString()) : rec.id;
       const actionCol = isResolved
         ? '<span style="color: #64748b; font-size: 0.75rem;">Chiuso</span>'
-        : `<button class="btn btn-secondary btn-sm" onclick="window.resolveForecastRecordById(${recId}, '${rec.target}', true)" style="padding: 2px 6px; font-size: 0.75rem; margin-right: 4px;">✓ Succ</button><button class="btn btn-secondary btn-sm" onclick="window.resolveForecastRecordById(${recId}, '${rec.target}', false)" style="padding: 2px 6px; font-size: 0.75rem;">✗ Fall</button>`;
+        : `<button class="btn btn-secondary btn-sm" onclick="window.resolveForecastRecordById(${recId}, '${rec.target}', true)" style="padding: 2px 8px; font-size: 0.75rem; margin-right: 4px;"><svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" style="vertical-align:-1px; margin-right: 2px;"><polyline points="20 6 9 17 4 12"/></svg> Successo</button><button class="btn btn-secondary btn-sm" onclick="window.resolveForecastRecordById(${recId}, '${rec.target}', false)" style="padding: 2px 8px; font-size: 0.75rem;"><svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none" style="vertical-align:-1px; margin-right: 2px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Fallimento</button>`;
 
       return `
         <tr>
@@ -408,17 +408,17 @@ class SecondBrainVisualizer {
     this.hoveredNode = null;
     this.currentFilter = "all";
 
-    this.transform = { x: 0, y: 0, scale: 1.0 };
+    this.transform = { x: 0, y: 0, scale: 0.85 };
     this.drag = { isDragging: false, isNodeDrag: false, node: null, lastX: 0, lastY: 0 };
     this.animId = null;
     this.isActive = false;
 
     this.colors = {
-      target: { fill: "#0284c7", stroke: "#38bdf8", glow: "rgba(56, 189, 248, 0.4)", label: "🎯 Target" },
-      memory: { fill: "#7e22ce", stroke: "#a855f7", glow: "rgba(168, 85, 247, 0.4)", label: "🧬 Memoria" },
-      reflection: { fill: "#b45309", stroke: "#f59e0b", glow: "rgba(245, 158, 11, 0.4)", label: "💡 Riflessione" },
-      fact: { fill: "#047857", stroke: "#10b981", glow: "rgba(16, 185, 129, 0.4)", label: "📚 Fatto" },
-      concept: { fill: "#be123c", stroke: "#f43f5e", glow: "rgba(244, 63, 94, 0.4)", label: "⚙️ Concetto" }
+      target: { fill: "#0284c7", stroke: "#38bdf8", glow: "rgba(56, 189, 248, 0.4)", label: "Target Bayesiano" },
+      memory: { fill: "#7e22ce", stroke: "#a855f7", glow: "rgba(168, 85, 247, 0.4)", label: "Memoria Episodica" },
+      reflection: { fill: "#b45309", stroke: "#f59e0b", glow: "rgba(245, 158, 11, 0.4)", label: "Riflessione Critica" },
+      fact: { fill: "#047857", stroke: "#10b981", glow: "rgba(16, 185, 129, 0.4)", label: "Fatto Sviluppatore" },
+      concept: { fill: "#be123c", stroke: "#f43f5e", glow: "rgba(244, 63, 94, 0.4)", label: "Concetto Chiave" }
     };
 
     if (this.canvas) {
@@ -462,7 +462,7 @@ class SecondBrainVisualizer {
     this.nodes = rawNodes.map((n, idx) => {
       const existing = prevMap.get(n.id);
       const angle = (idx / rawNodes.length) * Math.PI * 2;
-      const dist = 120 + (idx % 3) * 60;
+      const dist = 140 + (idx % 3) * 70;
       
       const radius = n.category === "concept" ? 22 : (n.category === "target" ? 18 : 16);
 
@@ -491,6 +491,46 @@ class SecondBrainVisualizer {
     }
   }
 
+  zoomIn() {
+    this.transform.scale = Math.min(this.transform.scale * 1.25, 3.5);
+  }
+
+  zoomOut() {
+    this.transform.scale = Math.max(this.transform.scale * 0.8, 0.25);
+  }
+
+  fitView() {
+    if (this.nodes.length === 0) {
+      this.transform = { x: 0, y: 0, scale: 0.85 };
+      return;
+    }
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const n of this.nodes) {
+      if (n.x < minX) minX = n.x;
+      if (n.x > maxX) maxX = n.x;
+      if (n.y < minY) minY = n.y;
+      if (n.y > maxY) maxY = n.y;
+    }
+    const rect = this.canvas.getBoundingClientRect();
+    const padding = 80;
+    const graphW = Math.max(maxX - minX + padding * 2, 200);
+    const graphH = Math.max(maxY - minY + padding * 2, 200);
+    const scaleX = rect.width / graphW;
+    const scaleY = rect.height / graphH;
+    const scale = Math.min(Math.max(Math.min(scaleX, scaleY), 0.3), 1.5);
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    this.transform = {
+      x: -centerX * scale,
+      y: -centerY * scale,
+      scale
+    };
+  }
+
+  resetView() {
+    this.transform = { x: 0, y: 0, scale: 0.85 };
+  }
+
   setupEventListeners() {
     this.canvas.addEventListener("mousedown", (e) => this.onMouseDown(e));
     window.addEventListener("mousemove", (e) => this.onMouseMove(e));
@@ -507,22 +547,23 @@ class SecondBrainVisualizer {
       });
     });
 
-    // Reset Zoom
+    // Zoom & HUD Controls
+    const zoomInBtn = document.getElementById("brain-zoom-in-btn");
+    const zoomOutBtn = document.getElementById("brain-zoom-out-btn");
+    const fitViewBtn = document.getElementById("brain-fit-view-btn");
     const resetBtn = document.getElementById("brain-reset-zoom-btn");
-    if (resetBtn) {
-      resetBtn.addEventListener("click", () => {
-        this.transform = { x: 0, y: 0, scale: 1.0 };
-      });
-    }
 
-    // Spontaneous Thought Pulse Trigger
-    const pulseBtn = document.getElementById("brain-pulse-btn");
+    if (zoomInBtn) zoomInBtn.addEventListener("click", () => this.zoomIn());
+    if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => this.zoomOut());
+    if (fitViewBtn) fitViewBtn.addEventListener("click", () => this.fitView());
+    if (resetBtn) resetBtn.addEventListener("click", () => this.resetView());
+
     // Heartbeat Button
     const heartbeatBtn = document.getElementById("brain-heartbeat-btn");
     if (heartbeatBtn) {
       heartbeatBtn.addEventListener("click", async () => {
         heartbeatBtn.disabled = true;
-        heartbeatBtn.textContent = "💓 Ascoltando...";
+        heartbeatBtn.textContent = "Ascolto attivo...";
         try {
           await invoke("trigger_autonomous_heartbeat");
           await this.loadAndRender();
@@ -531,27 +572,29 @@ class SecondBrainVisualizer {
           console.error("Errore battito di coscienza: ", err);
         } finally {
           heartbeatBtn.disabled = false;
-          heartbeatBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> 💓 Heartbeat`;
+          heartbeatBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> Heartbeat`;
         }
       });
     }
 
+    // Spontaneous Thought Pulse Trigger
+    const pulseBtn = document.getElementById("brain-pulse-btn");
     if (pulseBtn) {
       pulseBtn.addEventListener("click", async () => {
         pulseBtn.disabled = true;
-        pulseBtn.textContent = "⚡ Riflettendo...";
+        pulseBtn.textContent = "Elaborazione...";
         try {
           const res = await invoke("trigger_spontaneous_thought");
           await this.loadAndRender();
           await loadAutonomousPulses();
           if (res.thought_trace) {
-            window.alert(`✨ Nuovo Pensiero Introspettivo Formulato da Makima:\n\n"${res.response}"`);
+            window.alert(`Nuovo Pensiero Introspettivo Formulato da Makima:\n\n"${res.response}"`);
           }
         } catch (err) {
           window.alert("Errore generazione pensiero: " + err);
         } finally {
           pulseBtn.disabled = false;
-          pulseBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ✨ Pensiero Spontaneo`;
+          pulseBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Pensiero Spontaneo`;
         }
       });
     }
@@ -685,8 +728,16 @@ class SecondBrainVisualizer {
 
   onWheel(e) {
     e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
-    const newScale = Math.min(Math.max(this.transform.scale * zoomFactor, 0.4), 3.0);
+    const rect = this.canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left - rect.width / 2;
+    const mouseY = e.clientY - rect.top - rect.height / 2;
+
+    const zoomFactor = e.deltaY < 0 ? 1.14 : 0.88;
+    const oldScale = this.transform.scale;
+    const newScale = Math.min(Math.max(oldScale * zoomFactor, 0.25), 3.5);
+
+    this.transform.x = mouseX - (mouseX - this.transform.x) * (newScale / oldScale);
+    this.transform.y = mouseY - (mouseY - this.transform.y) * (newScale / oldScale);
     this.transform.scale = newScale;
   }
 
@@ -1000,7 +1051,7 @@ async function loadAutonomousPulses() {
           second: "2-digit",
         });
         const actionHtml = p.suggested_action
-          ? `<div class="pulse-card-action">💡 ${escapeHtml(p.suggested_action)}</div>`
+          ? `<div class="pulse-card-action"><svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align:-1px; margin-right:3px;"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg> ${escapeHtml(p.suggested_action)}</div>`
           : "";
 
         return `
