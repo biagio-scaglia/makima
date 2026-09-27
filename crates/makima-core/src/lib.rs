@@ -5,12 +5,14 @@
 //! Questo crate ospita il dominio fondamentale per la raccolta di evidenze empiriche,
 //! la modellazione statistica interpretabile, la quantificazione dell'incertezza,
 //! l'esecuzione di simulazioni previsionali e la valutazione della calibrazione.
+pub mod daemon;
 pub mod eval;
 pub mod forecast;
 pub mod laplace;
 pub mod prob;
 pub mod storage;
 
+pub use daemon::{AutonomousWatcher, CognitivePulse, PulseTrigger, PulseUrgency};
 pub use eval::{CalibrationBin, CalibrationRating, EvaluationReport, Evaluator, Outcome, Scoring};
 pub use forecast::{
     Forecast, ForecastError, ForecastId, ForecastLedger, ForecastRecord, ForecastStatus,

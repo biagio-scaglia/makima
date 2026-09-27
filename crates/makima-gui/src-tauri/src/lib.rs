@@ -10,6 +10,7 @@ use tauri::State;
 /// Stato dell'applicazione gestito da Tauri in memoria condivisa thread-safe.
 pub struct AppState {
     pub engine: Mutex<MakimaEngine>,
+    pub watcher: Mutex<makima_core::AutonomousWatcher>,
     pub db_path: PathBuf,
 }
 
@@ -35,6 +36,7 @@ impl AppState {
 
         Self {
             engine: Mutex::new(engine),
+            watcher: Mutex::new(makima_core::AutonomousWatcher::new()),
             db_path,
         }
     }
@@ -973,6 +975,91 @@ fn trigger_spontaneous_thought(state: State<'_, AppState>) -> Result<ChatRespons
     })
 }
 
+/// Comando IPC: Recupera gli impulsi cognitivi recenti generati dal watcher autonomo.
+#[tauri::command]
+fn get_autonomous_pulses(
+    limit: Option<usize>,
+    state: State<'_, AppState>,
+) -> Result<Vec<makima_core::CognitivePulse>, String> {
+    let db = MakimaDb::open(&state.db_path).map_err(|e| e.to_string())?;
+    let pulses = db.get_recent_pulses(limit.unwrap_or(20)).map_err(|e| e.to_string())?;
+    Ok(pulses)
+}
+
+/// Comando IPC: Esegue un battito di coscienza autonoma (Heartbeat).
+#[tauri::command]
+fn trigger_autonomous_heartbeat(
+    state: State<'_, AppState>,
+) -> Result<makima_core::CognitivePulse, String> {
+    let engine = state.engine.lock().map_err(|e| e.to_string())?;
+    let watcher = state.watcher.lock().map_err(|e| e.to_string())?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    let active_forecasts = engine.ledger().pending_count();
+    let observed_targets = engine
+        .observations()
+        .iter()
+        .map(|o| &o.target)
+        .collect::<std::collections::HashSet<_>>()
+        .len();
+
+    let pulse = watcher.generate_periodic_reflection(active_forecasts, observed_targets, now);
+
+    // Salva nel database SQLite
+    if let Ok(db) = MakimaDb::open(&state.db_path) {
+        let _ = db.insert_cognitive_pulse(&pulse);
+    }
+
+    // Aggiungi al journal per il second brain
+    let journal_entry = MindJournalEntry {
+        experience_id: pulse.id.clone(),
+        timestamp: now as f64,
+        category: "autonomous_reflection".to_string(),
+        summary: format!("Battito di Coscienza (Heartbeat): {} target monitorati", observed_targets),
+        content: pulse.inner_thought.clone(),
+        associated_target: Some("autonomous_watcher".to_string()),
+        epistemic_confidence: 0.95,
+        tags: vec!["coscienza_attiva".to_string(), "heartbeat".to_string(), "autonomia".to_string()],
+    };
+
+    let _ = std::fs::create_dir_all(".makima");
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(".makima/mind_journal.jsonl")
+    {
+        use std::io::Write;
+        if let Ok(json) = serde_json::to_string(&journal_entry) {
+            let _ = writeln!(file, "{}", json);
+        }
+    }
+
+    Ok(pulse)
+}
+
+/// Comando IPC: Esegue la scansione autonoma della telemetria Git e genera impulsi su modifiche/anomalie.
+#[tauri::command]
+fn sync_autonomous_telemetry(
+    state: State<'_, AppState>,
+) -> Result<Vec<makima_core::CognitivePulse>, String> {
+    let mut cmd = std::process::Command::new("python");
+    cmd.env("PYTHONPATH", "python");
+    cmd.args(["-m", "makima_lab", "sync-git"]);
+    let _ = cmd.status();
+
+    let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
+    if let Ok(db) = MakimaDb::open(&state.db_path) {
+        let _ = db.load_into_engine(&mut engine);
+    }
+
+    let db = MakimaDb::open(&state.db_path).map_err(|e| e.to_string())?;
+    let pulses = db.get_recent_pulses(10).map_err(|e| e.to_string())?;
+    Ok(pulses)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = AppState::new();
@@ -989,11 +1076,14 @@ pub fn run() {
             resolve_forecast,
             resolve_forecast_by_id,
             sync_git_telemetry,
+            sync_autonomous_telemetry,
             generate_laplace_bulletin,
             query_chat,
             get_second_brain_graph,
             add_brain_memory,
-            trigger_spontaneous_thought
+            trigger_spontaneous_thought,
+            get_autonomous_pulses,
+            trigger_autonomous_heartbeat
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'esecuzione dell'applicazione Tauri Makima");

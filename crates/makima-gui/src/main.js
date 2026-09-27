@@ -517,6 +517,25 @@ class SecondBrainVisualizer {
 
     // Spontaneous Thought Pulse Trigger
     const pulseBtn = document.getElementById("brain-pulse-btn");
+    // Heartbeat Button
+    const heartbeatBtn = document.getElementById("brain-heartbeat-btn");
+    if (heartbeatBtn) {
+      heartbeatBtn.addEventListener("click", async () => {
+        heartbeatBtn.disabled = true;
+        heartbeatBtn.textContent = "💓 Ascoltando...";
+        try {
+          await invoke("trigger_autonomous_heartbeat");
+          await this.loadAndRender();
+          await loadAutonomousPulses();
+        } catch (err) {
+          console.error("Errore battito di coscienza: ", err);
+        } finally {
+          heartbeatBtn.disabled = false;
+          heartbeatBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> 💓 Heartbeat`;
+        }
+      });
+    }
+
     if (pulseBtn) {
       pulseBtn.addEventListener("click", async () => {
         pulseBtn.disabled = true;
@@ -524,6 +543,7 @@ class SecondBrainVisualizer {
         try {
           const res = await invoke("trigger_spontaneous_thought");
           await this.loadAndRender();
+          await loadAutonomousPulses();
           if (res.thought_trace) {
             window.alert(`✨ Nuovo Pensiero Introspettivo Formulato da Makima:\n\n"${res.response}"`);
           }
@@ -957,6 +977,49 @@ window.selectBrainNode = (nodeId) => {
   }
 };
 
+// Caricamento dello Stream degli Impulsi Cognitivi di Coscienza Attiva
+async function loadAutonomousPulses() {
+  const container = document.getElementById("pulse-stream-list");
+  const countBadge = document.getElementById("pulse-count-badge");
+  if (!container) return;
+
+  try {
+    const pulses = await invoke("get_autonomous_pulses", { limit: 15 });
+    if (countBadge) countBadge.textContent = `${pulses.length} impulsi`;
+
+    if (!pulses || pulses.length === 0) {
+      container.innerHTML = `<div class="text-dim" style="font-size: 0.75rem; text-align: center; padding: 8px;">Nessun impulso registrato. Il demone è in ascolto attivo...</div>`;
+      return;
+    }
+
+    container.innerHTML = pulses
+      .map((p) => {
+        const dateStr = new Date(p.timestamp_sec * 1000).toLocaleTimeString("it-IT", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+        const actionHtml = p.suggested_action
+          ? `<div class="pulse-card-action">💡 ${escapeHtml(p.suggested_action)}</div>`
+          : "";
+
+        return `
+          <div class="pulse-card">
+            <div class="pulse-card-header">
+              <span class="pulse-card-urgency ${p.urgency}">${p.urgency}</span>
+              <span class="text-dim">${dateStr}</span>
+            </div>
+            <div class="pulse-card-thought">${escapeHtml(p.inner_thought)}</div>
+            ${actionHtml}
+          </div>
+        `;
+      })
+      .join("");
+  } catch (err) {
+    console.error("Errore recupero impulsi autonomi: ", err);
+  }
+}
+
 // Inizializzazione Principale
 window.addEventListener("DOMContentLoaded", async () => {
   setupNavigation();
@@ -970,6 +1033,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   if (brainNavBtn) {
     brainNavBtn.addEventListener("click", () => {
       secondBrain.loadAndRender();
+      loadAutonomousPulses();
     });
   }
 
@@ -980,7 +1044,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("refresh-btn").addEventListener("click", () => {
     loadDashboardData();
-    if (secondBrain && secondBrain.isActive) secondBrain.loadAndRender();
+    if (secondBrain && secondBrain.isActive) {
+      secondBrain.loadAndRender();
+      loadAutonomousPulses();
+    }
   });
 
   document.getElementById("sync-git-btn").addEventListener("click", async () => {
@@ -991,7 +1058,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       const count = await invoke("sync_git_telemetry");
       window.alert(`Sincronizzazione Git completata con successo! Totale osservazioni: ${count}`);
       await loadDashboardData();
-      if (secondBrain) await secondBrain.loadAndRender();
+      if (secondBrain) {
+        await secondBrain.loadAndRender();
+        await loadAutonomousPulses();
+      }
     } catch (e) {
       window.alert("Errore sincronizzazione Git: " + e);
     } finally {
@@ -1012,5 +1082,18 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   await loadDashboardData();
+  await loadAutonomousPulses();
+
+  // Loop di Coscienza Attiva in Background (Ogni 30 secondi)
+  setInterval(async () => {
+    try {
+      await invoke("trigger_autonomous_heartbeat");
+      if (secondBrain && secondBrain.isActive) {
+        await loadAutonomousPulses();
+      }
+    } catch (e) {
+      // Background heartbeat silent catch
+    }
+  }, 30000);
 });
 

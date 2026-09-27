@@ -238,6 +238,15 @@ impl MakimaDb {
                 extracted_intent TEXT,
                 timestamp_sec INTEGER NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS cognitive_pulses (
+                id TEXT PRIMARY KEY,
+                timestamp_sec INTEGER NOT NULL,
+                trigger_json TEXT NOT NULL,
+                urgency TEXT NOT NULL,
+                inner_thought TEXT NOT NULL,
+                suggested_action TEXT
+            );
             "#,
         )?;
         Ok(())
@@ -303,6 +312,80 @@ impl MakimaDb {
         )?;
 
         Ok(id)
+    }
+
+    /// Registra un impulso cognitivo generato dalla sorveglianza autonoma.
+    pub fn insert_cognitive_pulse(&self, pulse: &crate::daemon::CognitivePulse) -> rusqlite::Result<()> {
+        let trigger_json = serde_json::to_string(&pulse.trigger).unwrap_or_default();
+        let urgency_str = pulse.urgency.to_string();
+
+        self.conn.execute(
+            "INSERT OR REPLACE INTO cognitive_pulses (id, timestamp_sec, trigger_json, urgency, inner_thought, suggested_action) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                pulse.id,
+                pulse.timestamp_sec,
+                trigger_json,
+                urgency_str,
+                pulse.inner_thought,
+                pulse.suggested_action,
+            ],
+        )?;
+
+        let payload = serde_json::json!({
+            "pulse_id": pulse.id,
+            "urgency": urgency_str,
+            "inner_thought": pulse.inner_thought,
+            "timestamp_sec": pulse.timestamp_sec
+        });
+        let _ = self.conn.execute(
+            "INSERT INTO event_log (topic, target, payload_json, timestamp_sec) VALUES (?1, ?2, ?3, ?4)",
+            params!["mind.cognitive_pulse", "system:mind", payload.to_string(), pulse.timestamp_sec],
+        );
+
+        Ok(())
+    }
+
+    /// Recupera gli impulsi cognitivi più recenti memorizzati nel database.
+    pub fn get_recent_pulses(&self, limit: usize) -> rusqlite::Result<Vec<crate::daemon::CognitivePulse>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, timestamp_sec, trigger_json, urgency, inner_thought, suggested_action FROM cognitive_pulses ORDER BY timestamp_sec DESC LIMIT ?1"
+        )?;
+
+        let pulse_iter = stmt.query_map(params![limit as i64], |row| {
+            let id: String = row.get(0)?;
+            let timestamp_sec: i64 = row.get(1)?;
+            let trigger_json: String = row.get(2)?;
+            let urgency_str: String = row.get(3)?;
+            let inner_thought: String = row.get(4)?;
+            let suggested_action: Option<String> = row.get(5)?;
+
+            let trigger = serde_json::from_str(&trigger_json).unwrap_or(crate::daemon::PulseTrigger::PeriodicReflection {
+                active_forecasts: 0,
+                observed_targets: 0,
+            });
+
+            let urgency = match urgency_str.as_str() {
+                "CRITICAL" => crate::daemon::PulseUrgency::Critical,
+                "HIGH" => crate::daemon::PulseUrgency::High,
+                "MEDIUM" => crate::daemon::PulseUrgency::Medium,
+                _ => crate::daemon::PulseUrgency::Low,
+            };
+
+            Ok(crate::daemon::CognitivePulse {
+                id,
+                timestamp_sec,
+                trigger,
+                urgency,
+                inner_thought,
+                suggested_action,
+            })
+        })?;
+
+        let mut pulses = Vec::new();
+        for p in pulse_iter {
+            pulses.push(p?);
+        }
+        Ok(pulses)
     }
 
     /// Popola il database SQLite a partire da uno store JSON (sincronizzazione iniziale).

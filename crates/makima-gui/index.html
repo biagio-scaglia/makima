@@ -67,6 +67,10 @@
           <p id="page-subtitle">Visualizzazione delle distribuzioni a posteriori, stima dell'incertezza e tracciamento eventi.</p>
         </div>
         <div class="top-actions">
+          <div class="pulse-badge" id="active-pulse-badge" title="Demone di Coscienza Attiva & Sorveglianza Continua">
+            <span class="pulse-dot"></span>
+            <span id="pulse-status-label">Coscienza: Attiva</span>
+          </div>
           <button id="sync-git-btn" class="btn btn-secondary">
             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/></svg>
             Sincronizza Git
@@ -325,6 +329,10 @@
 
               <!-- Quick Actions -->
               <div class="brain-action-group">
+                <button id="brain-heartbeat-btn" class="btn btn-secondary" title="Esegui un battito di coscienza autonoma">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                  💓 Heartbeat
+                </button>
                 <button id="brain-pulse-btn" class="btn btn-secondary">
                   <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                   ✨ Pensiero Spontaneo
@@ -397,6 +405,17 @@
                   <h3>Tag Semantici</h3>
                   <div id="inspector-tags" class="tags-container">
                     <span class="tag-pill">second-brain</span>
+                  </div>
+                </div>
+
+                <!-- Live Stream of Autonomous Thoughts -->
+                <div class="inspector-section" style="margin-top: 14px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>Stream Impulsi Autonomi</h3>
+                    <span id="pulse-count-badge" class="badge" style="font-size: 0.65rem;">0 impulsi</span>
+                  </div>
+                  <div id="pulse-stream-list" class="pulse-stream-container">
+                    <div class="text-dim" style="font-size: 0.75rem; text-align: center; padding: 8px;">Nessun impulso registrato. Il demone è in ascolto attivo...</div>
                   </div>
                 </div>
               </div>
