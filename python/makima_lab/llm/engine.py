@@ -82,26 +82,26 @@ class QwenCognitiveEngine:
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     self.model_name,
                     local_files_only=True,
-                    trust_remote_code=True,
+                    trust_remote_code=False,
                 )
                 self.model = AutoModelForCausalLM.from_pretrained(
                     self.model_name,
                     local_files_only=True,
                     dtype=torch.float32 if self.device == "cpu" else torch.float16,
-                    trust_remote_code=True,
+                    trust_remote_code=False,
                 ).to(self.device)
             except Exception:
                 # 2. Se non presente in cache, scarica dal repository remoto
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     self.model_name,
                     local_files_only=False,
-                    trust_remote_code=True,
+                    trust_remote_code=False,
                 )
                 self.model = AutoModelForCausalLM.from_pretrained(
                     self.model_name,
                     local_files_only=False,
                     dtype=torch.float32 if self.device == "cpu" else torch.float16,
-                    trust_remote_code=True,
+                    trust_remote_code=False,
                 ).to(self.device)
 
             self.model.eval()
