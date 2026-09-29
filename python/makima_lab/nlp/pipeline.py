@@ -101,11 +101,10 @@ class SemanticForecastPipeline:
             self.knowledge_base = compute_knowledge_base_from_store(store_data)
 
     def _available_targets(self) -> list[str]:
-        """Target candidati: quelli osservati nello store, altrimenti il catalogo lessicale."""
+        """Target candidati: unione di quelli osservati e del catalogo lessicale."""
         observed = list(self.knowledge_base.keys())
-        if observed:
-            return observed
-        return list(KNOWN_TARGET_CATALOG)
+        catalog = list(KNOWN_TARGET_CATALOG)
+        return list(dict.fromkeys([*observed, *catalog]))
 
     def execute_structured(self, text: str) -> tuple[StructuredIntent, SemanticForecastResult]:
         """Elabora la query producendo lo StructuredIntent validato e il calcolo probabilistico."""
