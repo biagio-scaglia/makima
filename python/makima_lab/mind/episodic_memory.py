@@ -121,10 +121,17 @@ class EpisodicMemoryStore:
         if not self._memories:
             return []
 
+        q_lower = query_context.lower()
         scored = []
         for mem in self._memories:
-            mem_text = f"{mem.summary}. {mem.content} {' '.join(mem.tags)}"
+            target_bit = mem.associated_target or ""
+            mem_text = f"{mem.summary}. {mem.content} {target_bit} {' '.join(mem.tags)}"
             sim = self._embedder.similarity(query_context, mem_text)
+            # Il testo intero (summary+tags) può diluire l'hash-fallback: tieni il max col content.
+            sim = max(sim, self._embedder.similarity(query_context, mem.content))
+            # Boost associativo esplicito: target collegato presente nella query.
+            if target_bit and target_bit.lower() in q_lower:
+                sim = max(sim, 0.55)
             if sim >= min_similarity:
                 scored.append((mem, sim))
 

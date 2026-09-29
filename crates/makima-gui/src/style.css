@@ -1,26 +1,26 @@
 :root {
-  --bg-dark: #090d16;
-  --bg-card: rgba(15, 23, 42, 0.75);
-  --bg-card-hover: rgba(30, 41, 59, 0.7);
-  --border-color: rgba(51, 65, 85, 0.6);
-  --border-focus: #38bdf8;
+  --bg-dark: #0b1210;
+  --bg-card: rgba(16, 28, 24, 0.82);
+  --bg-card-hover: rgba(28, 42, 36, 0.75);
+  --border-color: rgba(56, 78, 68, 0.55);
+  --border-focus: #2dd4bf;
   
-  --primary: #0284c7;
-  --primary-hover: #0369a1;
-  --primary-glow: rgba(56, 189, 248, 0.25);
+  --primary: #0f766e;
+  --primary-hover: #0d9488;
+  --primary-glow: rgba(45, 212, 191, 0.18);
   
-  --accent-cyan: #38bdf8;
-  --accent-emerald: #10b981;
+  --accent-cyan: #2dd4bf;
+  --accent-emerald: #34d399;
   --accent-amber: #f59e0b;
-  --accent-purple: #a855f7;
-  --accent-rose: #f43f5e;
+  --accent-purple: #5eead4;
+  --accent-rose: #fb7185;
   
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
+  --text-main: #f1f5f4;
+  --text-muted: #94a3a0;
+  --text-dim: #64756f;
 
   --sidebar-w: 260px;
-  --radius-lg: 16px;
+  --radius-lg: 14px;
   --radius-md: 10px;
   --radius-sm: 6px;
   
@@ -49,9 +49,9 @@ body {
   display: flex;
   height: 100vh;
   width: 100vw;
-  background: radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.04), transparent 40%),
-              radial-gradient(circle at 10% 80%, rgba(168, 85, 247, 0.04), transparent 40%),
-              #090d16;
+  background: radial-gradient(ellipse at 70% 0%, rgba(45, 212, 191, 0.07), transparent 45%),
+              radial-gradient(ellipse at 10% 90%, rgba(245, 158, 11, 0.05), transparent 40%),
+              #0b1210;
 }
 
 /* Sidebar */
@@ -76,7 +76,7 @@ body {
 .brand-badge {
   width: 38px;
   height: 38px;
-  background: linear-gradient(135deg, #0284c7, #818cf8);
+  background: linear-gradient(135deg, #0f766e, #f59e0b);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -84,7 +84,7 @@ body {
   font-weight: 800;
   font-size: 1.2rem;
   color: #fff;
-  box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.35);
 }
 
 .brand-text {
@@ -570,15 +570,134 @@ body {
   display: none;
 }
 
+.hidden {
+  display: none !important;
+}
+
+/* Guide strip — "qui fai X" */
+.guide-strip {
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(45, 212, 191, 0.25);
+  border-left: 3px solid var(--accent-amber);
+  background: rgba(15, 118, 110, 0.12);
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.guide-strip strong {
+  color: var(--accent-cyan);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.guide-strip em {
+  color: var(--text-main);
+  font-style: normal;
+  font-weight: 600;
+}
+
 /* Chat Tab */
 .chat-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 160px);
+  height: calc(100vh - 200px);
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   overflow: hidden;
+}
+
+.chat-mode-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 16px 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mode-chip {
+  appearance: none;
+  border: 1px solid var(--border-color);
+  background: rgba(11, 18, 16, 0.6);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.mode-chip:hover {
+  color: var(--text-main);
+  border-color: rgba(45, 212, 191, 0.45);
+}
+
+.mode-chip.active {
+  color: #042f2e;
+  background: linear-gradient(135deg, #2dd4bf, #f59e0b);
+  border-color: transparent;
+  transform: translateY(-1px);
+}
+
+.chat-mode-hint {
+  padding: 0 16px 8px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.chat-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 12px;
+}
+
+.example-chip {
+  appearance: none;
+  border: 1px dashed rgba(45, 212, 191, 0.35);
+  background: transparent;
+  color: var(--accent-cyan);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.example-chip:hover {
+  background: rgba(45, 212, 191, 0.1);
+  border-style: solid;
+}
+
+.chat-target-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 10px;
+}
+
+.chat-target-row label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.chat-target-row .text-input {
+  flex: 1;
+}
+
+.chat-status-line {
+  padding: 8px 16px 12px;
+  font-size: 0.78rem;
+  color: var(--accent-amber);
+  font-family: var(--font-mono);
 }
 
 .chat-messages {
@@ -610,7 +729,7 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0284c7, #818cf8);
+  background: linear-gradient(135deg, #0f766e, #f59e0b);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -620,11 +739,11 @@ body {
 }
 
 .chat-msg.user .msg-avatar {
-  background: #475569;
+  background: #3f4f48;
 }
 
 .msg-content {
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(20, 32, 28, 0.7);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 12px 16px;
@@ -633,26 +752,26 @@ body {
 }
 
 .chat-msg.user .msg-content {
-  background: rgba(2, 132, 199, 0.25);
-  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(15, 118, 110, 0.28);
+  border-color: rgba(45, 212, 191, 0.35);
 }
 
 .thought-box {
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid rgba(129, 140, 248, 0.25);
-  border-left: 3px solid #818cf8;
+  background: rgba(11, 18, 16, 0.75);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  border-left: 3px solid var(--accent-amber);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
   margin-bottom: 10px;
   font-family: var(--font-mono);
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .thought-box summary {
   cursor: pointer;
   font-weight: 600;
-  color: #c084fc;
+  color: var(--accent-cyan);
   outline: none;
   margin-bottom: 6px;
   user-select: none;
@@ -660,7 +779,7 @@ body {
 }
 
 .thought-box summary:hover {
-  color: #e879f9;
+  color: var(--accent-amber);
 }
 
 .thought-content {

@@ -157,9 +157,9 @@ class SemanticForecastPipeline:
         temporal_prob = None
 
         if rate > 0.0:
-            if rel == TemporalRelation.RELATIVE_DURATION and struct.temporal_window.days:
+            if rel == TemporalRelation.RELATIVE_INTERVAL and struct.temporal_window.days:
                 temporal_prob = 1.0 - math.exp(-rate * float(struct.temporal_window.days))
-            elif rel == TemporalRelation.RELATIVE_DURATION:
+            elif rel == TemporalRelation.RELATIVE_INTERVAL:
                 temporal_prob = 1.0 - math.exp(-rate * 7.0)
             elif rel == TemporalRelation.SPECIFIC_DATE:
                 temporal_prob = 1.0 - math.exp(-rate * 30.0)

@@ -13,12 +13,13 @@ echo "-> rustfmt OK"
 
 echo ""
 echo "[2/5] Analisi Statica Rust (clippy)..."
-cargo clippy --all-targets -- -D warnings
+# makima-gui richiede GTK/WebKit: escluso dai check headless Linux.
+cargo clippy --workspace --exclude makima-gui --all-targets -- -D warnings
 echo "-> clippy OK"
 
 echo ""
 echo "[3/5] Esecuzione Test Unitari Rust..."
-cargo test --all
+cargo test --workspace --exclude makima-gui
 echo "-> cargo test OK"
 
 echo ""

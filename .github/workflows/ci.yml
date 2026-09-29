@@ -26,10 +26,11 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy check
-        run: cargo clippy --all-targets -- -D warnings
+        # makima-gui richiede GTK/WebKit sul runner Linux: escluso dal job headless.
+        run: cargo clippy --workspace --exclude makima-gui --all-targets -- -D warnings
 
       - name: Run Cargo tests
-        run: cargo test --all
+        run: cargo test --workspace --exclude makima-gui
 
       - name: Verify CLI status execution
         run: cargo run --bin makima -- status
