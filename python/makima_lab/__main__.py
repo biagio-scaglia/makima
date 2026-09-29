@@ -48,7 +48,7 @@ def handle_parse_intent(text: str) -> None:
 
 
 def handle_explain(target_name: str) -> None:
-    """Genera una spiegazione analitica per un target probabilistico tramite Qwen 2.5."""
+    """Genera una spiegazione ancorata ai dati empirici dello store (SLM o fallback)."""
     from makima_lab.llm import get_llm_engine
     from makima_lab.storage import load_store, compute_knowledge_base_from_store
 
@@ -65,10 +65,12 @@ def handle_explain(target_name: str) -> None:
         poisson_rate = float(evidence.get("rate_per_day", 0.0))
         evidence_count = int(evidence["successes"] + evidence["failures"])
 
+    # Laplace / posterior allineato al core: Beta(1+s, 1+f)
     prob = alpha / (alpha + beta)
     variance = (alpha * beta) / (((alpha + beta) ** 2) * (alpha + beta + 1))
 
-    print(f"\n[ Makima Cognitive Reasoning: {target_name} ]")
+    print(f"\n[ Makima Explain grounded: {target_name} ]")
+    print(f"Dati store → N={evidence_count}, Beta({alpha:.2f},{beta:.2f}), E[P]={prob * 100:.1f}%")
     explanation = engine.explain_target(
         target=target_name,
         probability=prob,
@@ -80,33 +82,32 @@ def handle_explain(target_name: str) -> None:
     )
     print("---------------------------------------------------")
     print(explanation)
-    print("---------------------------------------------------\n")
+    print(f"---------------------------------------------------")
+    print(f"Provenance SLM: {engine.last_source}\n")
 
 
 def handle_digest() -> None:
-    """Genera un bollettino esecutivo di forecasting tramite Qwen 2.5."""
+    """Bollettino esecutivo ancorato allo store (nessun target inventato)."""
     from makima_lab.llm import get_llm_engine
     from makima_lab.storage import load_store, compute_knowledge_base_from_store
 
     engine = get_llm_engine()
     store = load_store()
     kb = compute_knowledge_base_from_store(store)
-    
-    if kb:
-        sample_targets = [
-            {"name": target, "prob": round(data["successes"] / max(1, data["successes"] + data["failures"]), 2), "obs": data["successes"] + data["failures"]}
-            for target, data in kb.items()
-        ]
-    else:
-        sample_targets = [
-            {"name": "git:feature_ratio", "prob": 0.50, "obs": 0},
-            {"name": "deploy", "prob": 0.50, "obs": 0},
-        ]
-        
-    print("\n[ Makima Laplace Executive Digest (Qwen 2.5 SLM) ]")
+
+    sample_targets = []
+    for target, data in kb.items():
+        s = int(data["successes"])
+        f = int(data["failures"])
+        # Allineato a Laplace Beta(1+s,1+f)
+        prob = (s + 1) / (s + f + 2)
+        sample_targets.append({"name": target, "prob": prob, "obs": s + f})
+
+    print("\n[ Makima Laplace Digest (grounded) ]")
     print("===================================================")
     digest = engine.generate_digest(sample_targets)
     print(digest)
+    print(f"Provenance SLM: {engine.last_source}")
     print("===================================================\n")
 
 
@@ -285,10 +286,11 @@ def interactive_loop():
             handle_memory_status()
         elif cmd.startswith("query ") or cmd.startswith("nlp "):
             text = cmd.split(maxsplit=1)[1].strip()
-            result = pipeline.execute(text)
-            print()
-            print(result.format_report())
-            print()
+            struct = pipeline.process_intent(text)
+            print("\n[ StructuredIntent — nessun Bayes Python ]")
+            print(struct.summary())
+            print(f"\nJSON: {struct.to_json_compact()}")
+            print(f'\nPer il forecast: makima query "{text}"\n')
         elif cmd.startswith("update"):
             parts = cmd.split()
             if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
@@ -389,15 +391,16 @@ def main():
             handle_parse_intent(text)
         elif subcmd in ("query", "nlp") and len(sys.argv) > 2:
             text = " ".join(sys.argv[2:])
-            # Lab: mostra StructuredIntent; il forecast numerico runtime è responsabilità di Rust.
+            # Solo StructuredIntent: il Bayes di produzione è in Rust (`makima query`).
             pipeline = SemanticForecastPipeline()
-            struct, res = pipeline.execute_structured(text)
-            print("\n[ StructuredIntent → contratto Rust ]")
+            struct = pipeline.process_intent(text)
+            print("\n[ StructuredIntent — contratto verso Rust Core ]")
             print(struct.summary())
-            print("\n" + res.format_report() + "\n")
+            print("\nJSON compatto:")
+            print(struct.to_json_compact())
             print(
-                "Nota: in produzione usare `makima query ...` (CLI Rust) che esegue "
-                "il forecast nel core dopo il parse Python.\n"
+                "\nNessun calcolo Bayes in Python. Per la previsione usa:\n"
+                f'  makima query "{text}"\n'
             )
         elif subcmd in ("benchmark", "bench", "eval-all"):
             from experiments.forecasting.run_benchmarks import main as run_benchmark_main
