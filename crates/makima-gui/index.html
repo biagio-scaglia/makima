@@ -85,6 +85,10 @@
       <!-- TAB 1: DASHBOARD -->
       <section id="tab-dashboard" class="tab-panel active">
         <!-- Top Stats Row -->
+        <div class="guide-strip">
+          <strong>Qui leggi lo stato Bayes.</strong>
+          Registra evidenze in <em>Nuova Evidenza</em> → chiedi probabilità in <em>Chat → Previsione</em> → spiega i numeri in <em>Chat → Spiega (Qwen)</em>.
+        </div>
         <div class="stats-grid">
           <div class="stat-card">
             <span class="stat-label">Osservazioni Totali</span>
@@ -178,6 +182,10 @@
 
       <!-- TAB 2: INSERISCI EVIDENZA -->
       <section id="tab-observe" class="tab-panel">
+        <div class="guide-strip">
+          <strong>Qui registri fatti 0/1.</strong>
+          Ogni successo o fallimento aggiorna Beta(α,β) per quel target. Poi chiedi la probabilità in Chat → Previsione.
+        </div>
         <div class="card form-card">
           <div class="card-header">
             <div class="card-title-group">
@@ -265,24 +273,46 @@
 
       <!-- TAB 4: CHAT ASSISTENTE -->
       <section id="tab-chat" class="tab-panel">
+        <div class="guide-strip">
+          <strong>Qui fai conversazione.</strong>
+          Scegli una modalità sotto: probabilità = core Rust; spiegazioni e chiacchiere = Qwen; fatti personali = Ricorda.
+        </div>
         <div class="chat-container">
+          <div class="chat-mode-bar" id="chat-mode-bar" role="tablist" aria-label="Modalità chat">
+            <button type="button" class="mode-chip active" data-mode="forecast" title="Numeri Bayes via NLP→Rust">Previsione</button>
+            <button type="button" class="mode-chip" data-mode="explain" title="Qwen spiega un target dello store">Spiega (Qwen)</button>
+            <button type="button" class="mode-chip" data-mode="qwen" title="Chat Qwen ancorata allo store">Chat Qwen</button>
+            <button type="button" class="mode-chip" data-mode="remember" title="Salva un fatto nel diario">Ricorda</button>
+          </div>
+          <p class="chat-mode-hint" id="chat-mode-hint">Previsione: chiedi probabilità (es. «Qual è la probabilità del deploy?»).</p>
+          <div class="chat-examples" id="chat-examples">
+            <button type="button" class="example-chip" data-fill="Qual è la probabilità del deploy?">es. probabilità deploy</button>
+            <button type="button" class="example-chip" data-fill="Quando rilascerò il prossimo framework?">es. framework release</button>
+          </div>
           <div class="chat-messages" id="chat-messages">
             <div class="chat-msg assistant">
               <div class="msg-avatar">M</div>
               <div class="msg-content">
-                <p>Ciao! Sono **Makima**, la tua intelligenza probabilistica bayesiana.</p>
-                <p>Posso fornirti stime di probabilità a posteriori, spiegarti l'incertezza sui tuoi processi operativi o analizzare i dati registrati.</p>
+                <p>Ciao, sono <strong>Makima</strong>.</p>
+                <p><strong>Previsione</strong> → numeri Bayes (Rust). <strong>Spiega / Chat Qwen</strong> → linguaggio (Qwen, ancorato allo store). <strong>Ricorda</strong> → salva un fatto per dopo.</p>
               </div>
             </div>
           </div>
 
+          <div id="chat-target-row" class="chat-target-row hidden">
+            <label for="chat-target-input">Target da spiegare</label>
+            <input type="text" id="chat-target-input" class="text-input" list="chat-target-list" placeholder="es. deploy, framework_release, git:feature_ratio" />
+            <datalist id="chat-target-list"></datalist>
+          </div>
+
           <form id="chat-form" class="chat-input-row">
-            <input type="text" id="chat-input" class="text-input" placeholder="Chiedi qualcosa (es. 'Qual è la probabilità di framework_release?', 'Cosa sei?')..." autocomplete="off" required />
-            <button type="submit" class="btn btn-primary">
+            <input type="text" id="chat-input" class="text-input" placeholder="Scrivi qui…" autocomplete="off" required />
+            <button type="submit" class="btn btn-primary" id="chat-send-btn">
               <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               Invia
             </button>
           </form>
+          <p class="chat-status-line hidden" id="chat-status-line">Carico Qwen… può richiedere fino a qualche minuto la prima volta.</p>
         </div>
       </section>
 

@@ -1191,6 +1191,141 @@ fn sync_autonomous_telemetry(
     Ok(pulses)
 }
 
+/// Esegue un subcomando makima_lab e restituisce stdout (stderr in errore).
+fn run_lab_sidecar(args: &[&str], timeout_secs: u64) -> Result<String, String> {
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+
+    let mut child = Command::new("python")
+        .env("PYTHONPATH", "python")
+        .args(std::iter::once("-m").chain(std::iter::once("makima_lab")).chain(args.iter().copied()))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            format!(
+                "Impossibile avviare Python: {e}. Verifica PATH e `pip install -e \".[llm]\"`."
+            )
+        })?;
+
+    let timeout = Duration::from_secs(timeout_secs);
+    let start = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let mut stdout = String::new();
+                let mut stderr = String::new();
+                if let Some(mut out) = child.stdout.take() {
+                    let _ = out.read_to_string(&mut stdout);
+                }
+                if let Some(mut err) = child.stderr.take() {
+                    let _ = err.read_to_string(&mut stderr);
+                }
+                if !status.success() {
+                    return Err(format!(
+                        "makima_lab fallito ({}): {}",
+                        status.code().unwrap_or(-1),
+                        stderr.trim()
+                    ));
+                }
+                let text = stdout.trim().to_string();
+                if text.is_empty() {
+                    return Err("makima_lab non ha prodotto output.".to_string());
+                }
+                return Ok(text);
+            }
+            Ok(None) => {
+                if start.elapsed() > timeout {
+                    let _ = child.kill();
+                    return Err(format!(
+                        "Timeout dopo {timeout_secs}s (caricamento Qwen può richiedere tempo)."
+                    ));
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(e) => return Err(format!("I/O subprocess: {e}")),
+        }
+    }
+}
+
+fn strip_provenance(stdout: &str) -> (String, Option<String>) {
+    let mut provenance = None;
+    let mut lines: Vec<&str> = Vec::new();
+    for line in stdout.lines() {
+        if let Some(rest) = line.strip_prefix("PROVENANCE:") {
+            provenance = Some(rest.trim().to_string());
+        } else {
+            lines.push(line);
+        }
+    }
+    (lines.join("\n").trim().to_string(), provenance)
+}
+
+/// Comando IPC: spiegazione Qwen grounded su un target.
+#[tauri::command]
+fn slm_explain(target: String) -> Result<ChatResponseDto, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let raw = run_lab_sidecar(&["slm-explain", &target], 180)?;
+    let (text, provenance) = strip_provenance(&raw);
+    let thought = format!(
+        "Modalità: Spiega (Qwen).\nTarget: {target}.\nProvenance: {}.\nI numeri vengono dallo store; Qwen solo commenta.",
+        provenance.as_deref().unwrap_or("n/d")
+    );
+    Ok(ChatResponseDto {
+        response: text,
+        thought_trace: Some(thought),
+        confidence: None,
+        target: Some(target),
+        timestamp_sec: now,
+    })
+}
+
+/// Comando IPC: chat Qwen ancorata al contesto store.
+#[tauri::command]
+fn slm_chat(message: String) -> Result<ChatResponseDto, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let raw = run_lab_sidecar(&["slm-chat", &message], 180)?;
+    let (text, provenance) = strip_provenance(&raw);
+    let thought = format!(
+        "Modalità: Chat Qwen.\nProvenance: {}.\nContesto: top target dallo store (nessuna probabilità inventata).",
+        provenance.as_deref().unwrap_or("n/d")
+    );
+    Ok(ChatResponseDto {
+        response: text,
+        thought_trace: Some(thought),
+        confidence: None,
+        target: None,
+        timestamp_sec: now,
+    })
+}
+
+/// Comando IPC: memorizza un fatto (tell → diario episodico).
+#[tauri::command]
+fn remember_fact(text: String) -> Result<ChatResponseDto, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let raw = run_lab_sidecar(&["remember", &text], 90)?;
+    let (body, _) = strip_provenance(&raw);
+    Ok(ChatResponseDto {
+        response: body,
+        thought_trace: Some(
+            "Modalità: Ricorda.\nSalvato in .makima/mind_journal.jsonl (+ journal SQLite).".into(),
+        ),
+        confidence: Some(1.0),
+        target: None,
+        timestamp_sec: now,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = AppState::new();
@@ -1210,6 +1345,9 @@ pub fn run() {
             sync_autonomous_telemetry,
             generate_laplace_bulletin,
             query_chat,
+            slm_explain,
+            slm_chat,
+            remember_fact,
             get_second_brain_graph,
             add_brain_memory,
             trigger_spontaneous_thought,

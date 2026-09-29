@@ -47,8 +47,8 @@ def handle_parse_intent(text: str) -> None:
     print(structured.to_json_compact())
 
 
-def handle_explain(target_name: str) -> None:
-    """Genera una spiegazione ancorata ai dati empirici dello store (SLM o fallback)."""
+def _explain_payload(target_name: str) -> tuple[str, str, dict]:
+    """Calcola explain grounded; restituisce (testo, provenance, meta)."""
     from makima_lab.llm import get_llm_engine
     from makima_lab.storage import load_store, compute_knowledge_base_from_store
 
@@ -65,12 +65,8 @@ def handle_explain(target_name: str) -> None:
         poisson_rate = float(evidence.get("rate_per_day", 0.0))
         evidence_count = int(evidence["successes"] + evidence["failures"])
 
-    # Laplace / posterior allineato al core: Beta(1+s, 1+f)
     prob = alpha / (alpha + beta)
     variance = (alpha * beta) / (((alpha + beta) ** 2) * (alpha + beta + 1))
-
-    print(f"\n[ Makima Explain grounded: {target_name} ]")
-    print(f"Dati store → N={evidence_count}, Beta({alpha:.2f},{beta:.2f}), E[P]={prob * 100:.1f}%")
     explanation = engine.explain_target(
         target=target_name,
         probability=prob,
@@ -80,10 +76,98 @@ def handle_explain(target_name: str) -> None:
         poisson_rate=poisson_rate,
         variance=variance,
     )
+    meta = {
+        "target": target_name,
+        "n": evidence_count,
+        "alpha": alpha,
+        "beta": beta,
+        "prob": prob,
+    }
+    return str(explanation), engine.last_source, meta
+
+
+def handle_explain(target_name: str) -> None:
+    """Genera una spiegazione ancorata ai dati empirici dello store (SLM o fallback)."""
+    explanation, source, meta = _explain_payload(target_name)
+    print(f"\n[ Makima Explain grounded: {meta['target']} ]")
+    print(
+        f"Dati store → N={meta['n']}, Beta({meta['alpha']:.2f},{meta['beta']:.2f}), "
+        f"E[P]={meta['prob'] * 100:.1f}%"
+    )
     print("---------------------------------------------------")
     print(explanation)
-    print(f"---------------------------------------------------")
-    print(f"Provenance SLM: {engine.last_source}\n")
+    print("---------------------------------------------------")
+    print(f"Provenance SLM: {source}\n")
+
+
+def handle_slm_explain_bridge(target_name: str) -> None:
+    """Stdout pulito per IPC Tauri: testo + riga PROVENANCE."""
+    explanation, source, meta = _explain_payload(target_name)
+    header = (
+        f"Target `{meta['target']}` — N={meta['n']}, "
+        f"Beta({meta['alpha']:.2f},{meta['beta']:.2f}), E[P]={meta['prob'] * 100:.1f}%\n\n"
+    )
+    print(header + explanation)
+    print(f"PROVENANCE:{source}")
+
+
+def handle_slm_chat_bridge(message: str) -> None:
+    """Chat Qwen grounded su contesto store (bridge GUI)."""
+    from makima_lab.llm import get_llm_engine
+    from makima_lab.storage import load_store, compute_knowledge_base_from_store
+
+    engine = get_llm_engine()
+    store = load_store()
+    kb = compute_knowledge_base_from_store(store)
+    context: dict = {}
+    ranked = sorted(
+        kb.items(),
+        key=lambda kv: int(kv[1].get("successes", 0)) + int(kv[1].get("failures", 0)),
+        reverse=True,
+    )
+    for name, data in ranked[:5]:
+        s = int(data.get("successes", 0))
+        f = int(data.get("failures", 0))
+        prob = (s + 1) / (s + f + 2)
+        context[f"target:{name}"] = f"E[P]={prob * 100:.1f}% N={s + f}"
+    metrics = store.get("metrics") or {}
+    if "brier_score" in metrics:
+        context["brier_score"] = round(float(metrics["brier_score"]), 4)
+    context["osservazioni_totali"] = len(store.get("observations") or [])
+    text = engine.chat(message, context=context)
+    print(str(text))
+    print(f"PROVENANCE:{engine.last_source}")
+
+
+def handle_remember_bridge(text: str) -> None:
+    """Memorizza un fatto (tell) con stdout minimale per IPC."""
+    from makima_lab.mind import EpisodicMemoryStore
+
+    fact = EpisodicMemoryStore().record_developer_fact(text)
+    try:
+        from makima_lab.neural import get_neural_engine
+
+        engine = get_neural_engine()
+        engine.perceive(text, update_memory=True)
+        engine.learn_step(
+            text=text,
+            intent_label="fact",
+            action_label="REMEMBER",
+            auto_save=True,
+        )
+    except Exception:
+        pass
+    entry_id = record_journal_entry(
+        content=text,
+        tags=["tell", "gui"],
+        metadata={"episodic_id": fact.experience_id},
+    )
+    print(
+        f"Memorizzato: «{text}»\n"
+        f"Diario: {fact.experience_id} | SQLite entry #{entry_id}\n"
+        f"Ora puoi chiedere in chat (modalità Previsione/Qwen) di richiamarlo."
+    )
+    print("PROVENANCE:memory")
 
 
 def handle_digest() -> None:
@@ -369,6 +453,12 @@ def main():
         if subcmd == "explain":
             target = sys.argv[2] if len(sys.argv) > 2 else "deploy"
             handle_explain(target)
+        elif subcmd in ("slm-explain", "slm_explain") and len(sys.argv) > 2:
+            handle_slm_explain_bridge(" ".join(sys.argv[2:]))
+        elif subcmd in ("slm-chat", "slm_chat") and len(sys.argv) > 2:
+            handle_slm_chat_bridge(" ".join(sys.argv[2:]))
+        elif subcmd in ("remember",) and len(sys.argv) > 2:
+            handle_remember_bridge(" ".join(sys.argv[2:]))
         elif subcmd in ("digest", "bulletin", "report"):
             handle_digest()
         elif subcmd == "chat":

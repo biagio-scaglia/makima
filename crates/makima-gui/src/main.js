@@ -16,7 +16,7 @@ function setupNavigation() {
     dashboard: { title: "Dashboard Bayesiana", sub: "Visualizzazione delle distribuzioni a posteriori, stima dell'incertezza e tracciamento eventi." },
     observe: { title: "Registra Evidenza", sub: "Inserimento rapido di evidenze binarie nel database relazionale SQLite con Event Log." },
     ledger: { title: "Ledger Previsioni & Brier Score", sub: "Registro immutabile delle previsioni emesse e calcolo dell'errore quadratico sui Ground Truth." },
-    chat: { title: "Chat Assistente Makima", sub: "Interroga il motore probabilistico e l'assistente in linguaggio naturale." },
+    chat: { title: "Chat Makima", sub: "Quattro modalità: Previsione (Rust), Spiega/Chat Qwen, Ricorda fatti." },
     brain: { title: "Second Brain & Grafo Neurale", sub: "Mente associativa di Makima: connessioni semantiche, memorie autobiografiche e target stocastici." },
     bulletin: { title: "Laplace Mail", sub: "Bollettino sintetico consolidato per reportistica previsionale e monitoraggio processi." }
   };
@@ -328,18 +328,94 @@ function setupObserveForm() {
   });
 }
 
-// Setup Chat Assistente
+// Setup Chat Assistente (modalità: forecast | explain | qwen | remember)
 function setupChatForm() {
   const form = document.getElementById("chat-form");
   const input = document.getElementById("chat-input");
   const messagesBox = document.getElementById("chat-messages");
+  const modeBar = document.getElementById("chat-mode-bar");
+  const hintEl = document.getElementById("chat-mode-hint");
+  const examplesEl = document.getElementById("chat-examples");
+  const targetRow = document.getElementById("chat-target-row");
+  const targetInput = document.getElementById("chat-target-input");
+  const statusLine = document.getElementById("chat-status-line");
+  const sendBtn = document.getElementById("chat-send-btn");
+
+  let chatMode = "forecast";
+
+  const MODE_META = {
+    forecast: {
+      hint: "Previsione: chiedi probabilità (core Rust). Es. «Qual è la probabilità del deploy?»",
+      placeholder: "Chiedi una probabilità…",
+      examples: [
+        "Qual è la probabilità del deploy?",
+        "Quando rilascerò il prossimo framework?",
+      ],
+    },
+    explain: {
+      hint: "Spiega (Qwen): indica il target sotto, poi premi Invia (o scrivi una domanda breve).",
+      placeholder: "Opzionale: dettaglio da spiegare…",
+      examples: ["deploy", "framework_release", "git:feature_ratio"],
+    },
+    qwen: {
+      hint: "Chat Qwen: parla in italiano; Qwen usa solo i dati dello store (niente probabilità inventate).",
+      placeholder: "Scrivi a Qwen…",
+      examples: [
+        "Riassumi lo stato dei target monitorati",
+        "Quale target ha più evidenze?",
+      ],
+    },
+    remember: {
+      hint: "Ricorda: confida un fatto personale; lo salva nel diario e potrai richiamarlo dopo.",
+      placeholder: "Es. Mi piace lavorare col front-end…",
+      examples: [
+        "Mi piace molto lavorare con il front-end",
+        "Preferisco i deploy il martedì",
+      ],
+    },
+  };
+
+  function setMode(mode) {
+    chatMode = mode;
+    modeBar.querySelectorAll(".mode-chip").forEach((b) => {
+      b.classList.toggle("active", b.getAttribute("data-mode") === mode);
+    });
+    const meta = MODE_META[mode];
+    hintEl.textContent = meta.hint;
+    input.placeholder = meta.placeholder;
+    targetRow.classList.toggle("hidden", mode !== "explain");
+    examplesEl.innerHTML = meta.examples
+      .map(
+        (ex) =>
+          `<button type="button" class="example-chip" data-fill="${ex.replace(/"/g, "&quot;")}">${ex}</button>`
+      )
+      .join("");
+  }
+
+  modeBar.addEventListener("click", (e) => {
+    const btn = e.target.closest(".mode-chip");
+    if (!btn) return;
+    setMode(btn.getAttribute("data-mode"));
+  });
+
+  examplesEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".example-chip");
+    if (!btn) return;
+    const fill = btn.getAttribute("data-fill");
+    if (chatMode === "explain") {
+      targetInput.value = fill;
+      input.value = input.value || `Spiega ${fill}`;
+    } else {
+      input.value = fill;
+    }
+    input.focus();
+  });
 
   function appendMessage(sender, text, thoughtTrace = null) {
     const msgDiv = document.createElement("div");
     msgDiv.className = `chat-msg ${sender}`;
     const avatarText = sender === "assistant" ? "M" : "Tu";
-    
-    // Formattazione base markdown
+
     const formatted = text
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
@@ -350,8 +426,8 @@ function setupChatForm() {
     if (thoughtTrace) {
       const formattedThought = thoughtTrace.replace(/\n/g, "<br/>");
       thoughtHtml = `
-        <details class="thought-box" open>
-          <summary>🧠 <em>Flusso di Coscienza & Monologo Interiore</em></summary>
+        <details class="thought-box">
+          <summary>Dettaglio / monologo</summary>
           <div class="thought-content">${formattedThought}</div>
         </details>
       `;
@@ -368,24 +444,92 @@ function setupChatForm() {
     messagesBox.scrollTop = messagesBox.scrollHeight;
   }
 
+  function setBusy(busy, label) {
+    sendBtn.disabled = busy;
+    input.disabled = busy;
+    if (busy) {
+      statusLine.textContent = label || "Elaborazione…";
+      statusLine.classList.remove("hidden");
+    } else {
+      statusLine.classList.add("hidden");
+    }
+  }
+
+  async function refreshTargetDatalist() {
+    try {
+      const summaries = await invoke("get_all_target_summaries");
+      const list = document.getElementById("chat-target-list");
+      if (!list) return;
+      list.innerHTML = (summaries || [])
+        .map((s) => `<option value="${s.target}"></option>`)
+        .join("");
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = input.value.trim();
-    if (!text) return;
+    if (!text && chatMode !== "explain") return;
+
+    if (chatMode === "explain") {
+      const target = (targetInput.value || text).trim();
+      if (!target) {
+        appendMessage("assistant", "Indica un **target** da spiegare (campo sopra o esempio).");
+        return;
+      }
+      appendMessage("user", `Spiega: ${target}`);
+      input.value = "";
+      setBusy(true, "Carico Qwen per explain… (prima volta può richiedere minuti)");
+      try {
+        const res = await invoke("slm_explain", { target });
+        appendMessage("assistant", res.response, res.thought_trace);
+        if (res.target) currentTarget = res.target;
+      } catch (err) {
+        appendMessage(
+          "assistant",
+          "Errore Spiega (Qwen): " +
+            err +
+            "\n\nSuggerimento: `pip install -e \".[llm]\"` e riprova."
+        );
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
 
     appendMessage("user", text);
     input.value = "";
 
+    const busyLabel =
+      chatMode === "qwen"
+        ? "Carico Qwen… (prima volta può richiedere minuti)"
+        : chatMode === "remember"
+          ? "Salvo nel diario…"
+          : "Calcolo previsione (NLP + Rust)…";
+    setBusy(true, busyLabel);
+
     try {
-      const res = await invoke("query_chat", { query: text });
-      appendMessage("assistant", res.response, res.thought_trace);
-      if (res.target) {
-        currentTarget = res.target;
+      let res;
+      if (chatMode === "forecast") {
+        res = await invoke("query_chat", { query: text });
+      } else if (chatMode === "qwen") {
+        res = await invoke("slm_chat", { message: text });
+      } else if (chatMode === "remember") {
+        res = await invoke("remember_fact", { text });
       }
+      appendMessage("assistant", res.response, res.thought_trace);
+      if (res.target) currentTarget = res.target;
     } catch (err) {
-      appendMessage("assistant", "Errore elaborazione query: " + err);
+      appendMessage("assistant", "Errore: " + err);
+    } finally {
+      setBusy(false);
     }
   });
+
+  setMode("forecast");
+  refreshTargetDatalist();
 }
 
 // ============================================================================
