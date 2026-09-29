@@ -365,7 +365,9 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
         .as_secs() as i64;
 
     // Preferisci il parser NLP tipizzato (stesso contratto della CLI, con timeout).
-    if let Ok(structured) = parse_structured_intent_default(&query) {
+    let nlp_result = parse_structured_intent_default(&query);
+    if let Ok(structured) = nlp_result.as_ref() {
+        let structured = structured.clone();
         let notes = structured.notes_joined();
         let thought = format!(
             "1. [Percezione NLP]: Intent={}, confidenza={:.1}%.\n2. [Target]: {}.\n3. [Temporale]: {}.\n4. [Validazione]: {} — {}",
@@ -493,7 +495,11 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
         }
     }
 
-    // Fallback locale se Python NLP non è disponibile
+    // Fallback locale se Python NLP non è disponibile (taxonomy errori bridge)
+    let bridge_diag = match &nlp_result {
+        Err(e) => format!("{e}"),
+        Ok(_) => "NLP ok ma intento non gestito dal ramo principale".to_string(),
+    };
     let q_lower = query.to_lowercase();
     let targets = engine.tracked_targets();
     let matched_target = targets
@@ -503,14 +509,15 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
     let (response, thought_trace, confidence, target_ret) = if let Some(target) = matched_target {
         let sum = engine.summarize_target(&target);
         let thought = format!(
-            "1. [Fallback]: NLP non disponibile; match lessicale su '{target}'.\n2. [Core Rust]: {} evidenze.",
+            "1. [Fallback]: NLP bridge fallito o incompleto.\n2. [Bridge]: {bridge_diag}\n3. [Core Rust]: match lessicale su '{target}' con {} evidenze.",
             sum.observations_count
         );
         let text = format!(
-            "Analisi Bayesiana (fallback) per **{}**: probabilità **{:.1}%** su {} evidenze.",
+            "Analisi Bayesiana (fallback lessicale) per **{}**: probabilità **{:.1}%** su {} evidenze.\n\n_Diag bridge NLP:_\n```\n{}\n```",
             target,
             sum.probability.value() * 100.0,
-            sum.observations_count
+            sum.observations_count,
+            bridge_diag
         );
         (
             text,
@@ -519,11 +526,11 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
             Some(target),
         )
     } else {
-        let thought =
-            "1. [Fallback]: Parser NLP non disponibile e nessun target lessicale riconosciuto."
-                .to_string();
+        let thought = format!(
+            "1. [Fallback]: Parser NLP non disponibile / senza target.\n2. [Bridge]: {bridge_diag}"
+        );
         let text = format!(
-            "Non riesco a interpretare: *\"{query}\"*. Assicurati che Python/`makima_lab` sia installato, oppure menziona un target esplicito."
+            "Non riesco a interpretare: *\"{query}\"*.\n\n{bridge_diag}\n\nVerifica Python/`makima_lab` (`pip install -e .`) oppure menziona un target esplicito."
         );
         (text, Some(thought), None, None)
     };

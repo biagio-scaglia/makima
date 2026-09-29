@@ -442,6 +442,7 @@ fn handle_query(query_text: &str) -> ExitCode {
     let structured = match parse_structured_intent_default(query_text) {
         Ok(v) => v,
         Err(err) => {
+            eprintln!("Errore bridge NLP [{}]:", err.code());
             eprintln!("{err}");
             return ExitCode::FAILURE;
         }

@@ -1809,7 +1809,6 @@ name = "makima-cli"
 version = "0.1.0"
 dependencies = [
  "makima-core",
- "serde_json",
 ]
 
 [[package]]

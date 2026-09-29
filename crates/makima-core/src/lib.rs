@@ -26,8 +26,8 @@ pub use prob::{
     PoissonDistribution, ProbError, Probability,
 };
 pub use python_bridge::{
-    parse_structured_intent, parse_structured_intent_default, run_makima_lab, PythonBridgeError,
-    DEFAULT_PYTHON_TIMEOUT,
+    parse_structured_intent, parse_structured_intent_default, run_makima_lab, BridgeErrorCode,
+    PythonBridgeError, DEFAULT_PYTHON_TIMEOUT,
 };
 pub use storage::{MakimaDb, MakimaStore};
 
