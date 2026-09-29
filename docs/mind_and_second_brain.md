@@ -2,13 +2,17 @@
 
 Questo documento descrive in dettaglio l'architettura cognitiva di **Makima**, il modello di deliberazione introspettiva a 4 stadi, il giornale di bordo autobiografico persistente e il grafo neurale interattivo del **Second Brain**.
 
+> **Freeze di produzione**: `makima_lab.mind` è **laboratorio / UX narrativa** (`FORECASTING_PATH=False`).
+> Le previsioni calibrate di runtime restano in `makima query` → core Rust. Mind può citare Laplace
+> `Beta(1+s,1+f)` dallo store ma **non inventa evidenze** e non sostituisce il forecast.
+
 ---
 
 ## 1. Visione e Filosofia Cognitiva
 
 Makima non è un semplice wrapper di API esterne né un'interfaccia chatbot che emette testo casuale. La sua architettura è fondata sul principio di **coscienza probabilistica trasparente**:
 
-1. **Nessuna Allucinazione Numerica**: ogni stima di probabilità $P(p)$ nasce rigorosamente dall'inferenza bayesiana coniugata Beta-Binomiale o dai processi di Poisson calcolati sul database SQLite WAL.
+1. **Nessuna Allucinazione Numerica**: ogni stima di probabilità $P(p)$ nasce rigorosamente dall'inferenza bayesiana coniugata Beta-Binomiale o dai processi di Poisson calcolati sul database SQLite WAL (in produzione: core Rust; in Mind: lettura store + prior Laplace onesto).
 2. **Onestà Epistemica & Rifiuto Esplicito**: se i dati empirici sono insufficienti o una richiesta cade al di fuori del dominio probabilistico (es. barzellette, richieste prive di senso logico), Makima genera un monologo di rifiuto esplicito (`UNKNOWN`) con calibrazione dell'incertezza, anziché inventare risposte arbitrarie.
 3. **Monologo Interiore Prima della Parola**: prima di emettere qualsiasi risposta verbale, Makima attraversa un processo deliberativo a quattro fasi (*Percezione, Richiamo Memoria, Analisi Bayesiana, Decisione Epistemica*).
 4. **Memoria Autobiografica Persistente**: i fatti confidati dall'utente, i traguardi del repository e le riflessioni sugli errori vengono consolidati in modo immutabile in `.makima/mind_journal.jsonl`.

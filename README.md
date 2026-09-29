@@ -80,11 +80,11 @@ I componenti cardine del sistema sono:
 1. **Core Engine (`crates/makima-core`)**: libreria pura Rust contenente l'algebra delle probabilità, i tipi immutabili, l'aggiornamento bayesiano esatto e il database SQLite WAL integrato.
 2. **CLI Native Runner (`crates/makima-cli`)**: eseguibile nativo ad alte prestazioni (`makima.exe`) per consultare la diagnostica, registrare evidenze e orchestrare le previsioni con latenza sub-second.
 3. **Desktop GUI & Second Brain (`crates/makima-gui`)**: applicazione desktop nativa ultra-reattiva (Tauri v2 + Canvas Physics + CSS Glassmorphism) con visualizzatore a grafi sinaptici, dashboard Beta e chat assistente.
-4. **Mente Cognitiva & Deliberazione (`python/makima_lab/mind`)**: motore di deliberazione cosciente a 4 stadi con monologo interiore trasparente, battito autonomo di pensiero e giornale autobiografico persistente.
+4. **Mente Cognitiva & Deliberazione (`python/makima_lab/mind`)**: laboratorio narrativo (fuori dal forecast) con deliberazione a stadi, Laplace onesto dallo store e giornale autobiografico.
 5. **NLP Multi-Stadio (`python/makima_lab/nlp`)**: pipeline euristica a stadi (preprocessing, intent regex, target matching, temporale, confidenza, validazione) che emette `StructuredIntent` JSON verso il core Rust. Non è un classificatore neurale end-to-end.
 6. **Semantic Embedder (`python/makima_lab/embeddings.py`)**: MiniLM opzionale (`pip install -e ".[nlp]"`) con fallback hash blake2b riproducibile.
 7. **Osservatore Git Reale (`python/makima_lab/git_observer.py`)**: monitoraggio dei commit dal repository Git locale per alimentare automaticamente target empirici (`git:feature_ratio`, `git:test_discipline`).
-8. **SLM Locale Opzionale (`python/makima_lab/llm`)**: modello compatto `Qwen/Qwen2.5-0.5B-Instruct` solo per explain/digest (non estrae intenti né probabilità).
+8. **SLM Locale Opzionale (`python/makima_lab/llm`)**: Qwen 2.5 0.5B solo explain/digest **grounded** (temp=0, ancore numeriche, fallback deterministico; `FORECASTING_PATH=False`).
 
 ---
 
