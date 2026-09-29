@@ -1,6 +1,6 @@
 use makima_core::{
-    BetaDistribution, Distribution, ForecastRecord, MakimaDb, MakimaEngine, MakimaStore,
-    Observation,
+    parse_structured_intent_default, BetaDistribution, Distribution, ForecastRecord, IntentKind,
+    MakimaDb, MakimaEngine, MakimaStore, Observation,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -355,28 +355,6 @@ fn generate_laplace_bulletin(state: State<'_, AppState>) -> Result<String, Strin
     Ok(mail.to_string())
 }
 
-fn parse_structured_intent_json(query: &str) -> Result<serde_json::Value, String> {
-    let output = std::process::Command::new("python")
-        .env("PYTHONPATH", "python")
-        .args(["-m", "makima_lab", "parse-intent", query])
-        .output()
-        .map_err(|e| format!("Parser NLP non disponibile: {e}"))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Parser NLP fallito: {stderr}"));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json_line = stdout
-        .lines()
-        .map(str::trim)
-        .find(|l| l.starts_with('{'))
-        .ok_or_else(|| "Nessun StructuredIntent JSON dal parser.".to_string())?;
-
-    serde_json::from_str(json_line).map_err(|e| format!("JSON non valido: {e}"))
-}
-
 /// Comando IPC: Risponde a una query naturale via StructuredIntent (NLP) + core Rust.
 #[tauri::command]
 fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseDto, String> {
@@ -386,47 +364,24 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
         .unwrap_or_default()
         .as_secs() as i64;
 
-    // Preferisci il parser NLP condiviso (stesso contratto della CLI).
-    if let Ok(structured) = parse_structured_intent_json(&query) {
-        let intent = structured
-            .get("intent")
-            .and_then(|v| v.as_str())
-            .unwrap_or("UNKNOWN");
-        let target = structured
-            .get("target")
-            .and_then(|v| v.as_str())
-            .map(str::to_string);
-        let confidence = structured
-            .get("confidence")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
-        let is_valid = structured
-            .get("is_valid_for_core")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        let temporal = structured
-            .pointer("/temporal_window/relation")
-            .and_then(|v| v.as_str())
-            .unwrap_or("UNKNOWN");
-        let notes = structured
-            .get("validation_notes")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|x| x.as_str())
-                    .collect::<Vec<_>>()
-                    .join("; ")
-            })
-            .unwrap_or_default();
-
+    // Preferisci il parser NLP tipizzato (stesso contratto della CLI, con timeout).
+    if let Ok(structured) = parse_structured_intent_default(&query) {
+        let notes = structured.notes_joined();
         let thought = format!(
-            "1. [Percezione NLP]: Intent={intent}, confidenza={:.1}%.\n2. [Target]: {}.\n3. [Temporale]: {temporal}.\n4. [Validazione]: {} — {notes}",
-            confidence * 100.0,
-            target.as_deref().unwrap_or("[None]"),
-            if is_valid { "ammesso al core" } else { "rifiutato" }
+            "1. [Percezione NLP]: Intent={}, confidenza={:.1}%.\n2. [Target]: {}.\n3. [Temporale]: {}.\n4. [Validazione]: {} — {}",
+            structured.intent,
+            structured.confidence * 100.0,
+            structured.target.as_deref().unwrap_or("[None]"),
+            structured.temporal_window.relation,
+            if structured.is_valid_for_core {
+                "ammesso al core"
+            } else {
+                "rifiutato"
+            },
+            notes
         );
 
-        if intent == "STATUS" {
+        if structured.intent == IntentKind::Status {
             let status = engine.status();
             let text = format!(
                 "**Stato Sistema Makima**:\n• Stato motore: `{}`\n• Totale osservazioni: `{}`\n• Totale esiti verificati: `{}`\n• Previsioni a registro: `{}` (In attesa: `{}`)",
@@ -439,34 +394,30 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
             return Ok(ChatResponseDto {
                 response: text,
                 thought_trace: Some(thought),
-                confidence: Some(confidence),
+                confidence: Some(structured.confidence),
                 target: None,
                 timestamp_sec: now,
             });
         }
 
-        if intent == "INFORMATION"
+        if structured.intent == IntentKind::Information
             && (query.to_lowercase().contains("chi sei")
                 || query.to_lowercase().contains("cosa sei"))
         {
             return Ok(ChatResponseDto {
                 response: "Sono **Makima**, un motore di previsione bayesiana interpretabile. Registro evidenze empiriche e calcolo probabilità calibrate senza allucinazioni numeriche.".to_string(),
                 thought_trace: Some(thought),
-                confidence: Some(confidence),
+                confidence: Some(structured.confidence),
                 target: None,
                 timestamp_sec: now,
             });
         }
 
-        if is_valid && matches!(intent, "QUERY" | "TEMPORAL_QUERY") {
-            if let Some(ref t) = target {
+        if structured.admits_forecast() {
+            if let Some(ref t) = structured.target {
                 let sum = engine.summarize_target(t);
                 let forecast = engine.predict_target(t);
-                let window_desc = structured
-                    .pointer("/temporal_window/days")
-                    .and_then(|v| v.as_u64())
-                    .map(|d| format!("{d} days"))
-                    .unwrap_or_else(|| temporal.to_string());
+                let window_desc = structured.temporal_window.window_desc();
                 let _ = engine.register_forecast_in_ledger(
                     t.as_str(),
                     now,
@@ -476,7 +427,6 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
                     "BayesianConjugate+NLP",
                 );
 
-                // Persisti ledger aggiornato
                 let store = MakimaStore::from_engine(&engine);
                 let _ = store.save(MakimaStore::default_path());
                 if let Ok(db) = MakimaDb::open(&state.db_path) {
@@ -484,14 +434,15 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
                 }
 
                 let text = format!(
-                    "Analisi Bayesiana (NLP→Rust) per **{}**:\n\n• Probabilità a posteriori: **{:.1}%** (S: {}, F: {})\n• Varianza epistemica: **{:.4}**\n• Entropia: **{:.2} bit**\n• Evidenze empiriche: **{}**\n• Finestra temporale NLP: `{temporal}`\n\nI numeri provengono dal core Rust; il parser Python ha solo strutturato l'intento.",
+                    "Analisi Bayesiana (NLP→Rust) per **{}**:\n\n• Probabilità a posteriori: **{:.1}%** (S: {}, F: {})\n• Varianza epistemica: **{:.4}**\n• Entropia: **{:.2} bit**\n• Evidenze empiriche: **{}**\n• Finestra temporale NLP: `{}`\n\nI numeri provengono dal core Rust; il parser Python ha solo strutturato l'intento.",
                     t,
                     sum.probability.value() * 100.0,
                     sum.success_count,
                     sum.failure_count,
                     sum.uncertainty_variance,
                     sum.entropy_bits,
-                    sum.observations_count
+                    sum.observations_count,
+                    structured.temporal_window.relation
                 );
 
                 return Ok(ChatResponseDto {
@@ -504,7 +455,7 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
             }
         }
 
-        if intent == "UNKNOWN" || !is_valid {
+        if structured.intent == IntentKind::Unknown || !structured.is_valid_for_core {
             let summaries = engine.target_summaries();
             let targets_list = if summaries.is_empty() {
                 "Nessun target ancora registrato. Usa *observe* o *sync-git*.".to_string()
@@ -535,7 +486,7 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
             return Ok(ChatResponseDto {
                 response: text,
                 thought_trace: Some(thought),
-                confidence: Some(confidence),
+                confidence: Some(structured.confidence),
                 target: None,
                 timestamp_sec: now,
             });

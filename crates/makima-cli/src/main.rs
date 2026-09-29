@@ -3,12 +3,12 @@
 mod eyes;
 
 use makima_core::{
-    Bernoulli, DiscreteDistribution, Distribution, Forecast, MakimaDb, MakimaEngine, MakimaStore,
-    PoissonDistribution, Scoring,
+    parse_structured_intent_default, run_makima_lab, Bernoulli, DiscreteDistribution, Distribution,
+    Forecast, MakimaDb, MakimaEngine, MakimaStore, PoissonDistribution, Scoring,
 };
 use std::env;
 use std::process::ExitCode;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 fn current_unix_timestamp() -> i64 {
     SystemTime::now()
@@ -381,33 +381,24 @@ fn handle_bernoulli(p_str: &str) {
     }
 }
 
-fn run_python_lab(args: &[&str]) -> Result<std::process::Output, std::io::Error> {
-    let mut cmd = std::process::Command::new("python");
-    cmd.env("PYTHONPATH", "python");
-    cmd.args(args);
-    cmd.output()
-}
-
-fn parse_structured_intent(query_text: &str) -> Result<serde_json::Value, String> {
-    let output = run_python_lab(&["-m", "makima_lab", "parse-intent", query_text])
-        .map_err(|e| format!("Impossibile eseguire il parser NLP Python: {e}"))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Parser NLP fallito: {stderr}"));
+fn run_lab_sidecar(args: &[&str], timeout: Duration) -> ExitCode {
+    match run_makima_lab(args, timeout) {
+        Ok(stdout) => {
+            print!("{stdout}");
+            ExitCode::SUCCESS
+        }
+        Err(err) => {
+            eprintln!("{err}");
+            ExitCode::FAILURE
+        }
     }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json_line = stdout
-        .lines()
-        .map(str::trim)
-        .find(|l| l.starts_with('{'))
-        .ok_or_else(|| "Nessun JSON StructuredIntent restituito dal parser.".to_string())?;
-
-    serde_json::from_str(json_line).map_err(|e| format!("JSON StructuredIntent non valido: {e}"))
 }
 
-fn print_forecast_report(forecast: &Forecast, forecast_id: makima_core::ForecastId, nlp_notes: &str) {
+fn print_forecast_report(
+    forecast: &Forecast,
+    forecast_id: makima_core::ForecastId,
+    nlp_notes: &str,
+) {
     println!("\n============================================================");
     println!("               MAKIMA PROBABILISTIC FORECAST                ");
     println!("============================================================");
@@ -447,8 +438,8 @@ fn print_forecast_report(forecast: &Forecast, forecast_id: makima_core::Forecast
 }
 
 fn handle_query(query_text: &str) -> ExitCode {
-    // 1. Python NLP → StructuredIntent JSON (nessun calcolo Bayes lato Python sul path CLI)
-    let structured = match parse_structured_intent(query_text) {
+    // 1. Python NLP → StructuredIntent tipizzato (nessun Bayes lato Python)
+    let structured = match parse_structured_intent_default(query_text) {
         Ok(v) => v,
         Err(err) => {
             eprintln!("{err}");
@@ -456,79 +447,52 @@ fn handle_query(query_text: &str) -> ExitCode {
         }
     };
 
-    let intent = structured
-        .get("intent")
-        .and_then(|v| v.as_str())
-        .unwrap_or("UNKNOWN");
-    let target = structured
-        .get("target")
-        .and_then(|v| v.as_str())
-        .map(str::to_string);
-    let confidence = structured
-        .get("confidence")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
-    let is_valid = structured
-        .get("is_valid_for_core")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let temporal = structured
-        .get("temporal_window")
-        .and_then(|v| v.get("relation"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("UNKNOWN");
-    let notes = structured
-        .get("validation_notes")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|x| x.as_str())
-                .collect::<Vec<_>>()
-                .join("; ")
-        })
-        .unwrap_or_default();
+    let notes = structured.notes_joined();
 
     println!("\n============================================================");
     println!("           MAKIMA SEMANTIC → RUST CORE BRIDGE              ");
     println!("============================================================");
     println!("Query:                \"{query_text}\"");
-    println!("Intent:               {intent}");
+    println!("Intent:               {}", structured.intent);
     println!(
         "Target:               {}",
-        target.as_deref().unwrap_or("[None]")
+        structured.target.as_deref().unwrap_or("[None]")
     );
-    println!("Temporal Window:      {temporal}");
-    println!("Confidenza Parser:    {:.1}%", confidence * 100.0);
+    println!(
+        "Temporal Window:      {}",
+        structured.temporal_window.relation
+    );
+    println!(
+        "Confidenza Parser:    {:.1}%",
+        structured.confidence * 100.0
+    );
     println!(
         "Valido per Core:      {}",
-        if is_valid { "Sì" } else { "No" }
+        if structured.is_valid_for_core {
+            "Sì"
+        } else {
+            "No"
+        }
     );
     if !notes.is_empty() {
         println!("Note Validazione:     {notes}");
     }
     println!("============================================================");
 
-    if !is_valid {
-        println!("\nPrevisione rifiutata: StructuredIntent non ammissibile per il core.\n");
+    if !structured.admits_forecast() {
+        println!("\nPrevisione rifiutata: StructuredIntent non ammissibile per il forecast.\n");
         return ExitCode::SUCCESS;
     }
 
-    let Some(target) = target else {
-        println!("\nPrevisione rifiutata: nessun target identificato.\n");
-        return ExitCode::SUCCESS;
-    };
-    let window_desc = structured
-        .pointer("/temporal_window/days")
-        .and_then(|v| v.as_u64())
-        .map(|d| format!("{d} days"))
-        .unwrap_or_else(|| temporal.to_string());
+    let target = structured.target.as_deref().unwrap_or_default();
+    let window_desc = structured.temporal_window.window_desc();
 
     // 2. Forecast esclusivo nel core Rust su evidenze empiriche dello store
     let mut engine = load_engine_from_store();
-    let forecast = engine.predict_target(&target);
+    let forecast = engine.predict_target(target);
     let ts = current_unix_timestamp();
     let id = engine.register_forecast_in_ledger(
-        &target,
+        target,
         ts,
         forecast.probability,
         &window_desc,
@@ -638,66 +602,27 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             } else {
                 let full_text = args[2..].join(" ");
-                let mut cmd = std::process::Command::new("python");
-                cmd.env("PYTHONPATH", "python");
-                cmd.args(["-m", "makima_lab", "tell", &full_text]);
-                match cmd.status() {
-                    Ok(status) if status.success() => ExitCode::SUCCESS,
-                    Ok(_) => ExitCode::FAILURE,
-                    Err(err) => {
-                        eprintln!("Errore esecuzione pipeline neurale Python: {err}");
-                        ExitCode::FAILURE
-                    }
-                }
+                // Lab sperimentale (neural) — fuori dal path forecasting.
+                run_lab_sidecar(&["tell", &full_text], Duration::from_secs(120))
             }
         }
         "neural" => {
             if args.len() < 3 {
                 eprintln!("Uso: makima neural <frase da ispezionare>");
+                eprintln!(
+                    "Nota: comando sperimentale di laboratorio, non usato per le previsioni."
+                );
                 ExitCode::FAILURE
             } else {
                 let full_text = args[2..].join(" ");
-                let mut cmd = std::process::Command::new("python");
-                cmd.env("PYTHONPATH", "python");
-                cmd.args(["-m", "makima_lab", "neural", &full_text]);
-                match cmd.status() {
-                    Ok(status) if status.success() => ExitCode::SUCCESS,
-                    Ok(_) => ExitCode::FAILURE,
-                    Err(err) => {
-                        eprintln!("Errore esecuzione analisi neurale: {err}");
-                        ExitCode::FAILURE
-                    }
-                }
+                run_lab_sidecar(&["neural", &full_text], Duration::from_secs(120))
             }
         }
-        "memory" => {
-            let mut cmd = std::process::Command::new("python");
-            cmd.env("PYTHONPATH", "python");
-            cmd.args(["-m", "makima_lab", "memory"]);
-            match cmd.status() {
-                Ok(status) if status.success() => ExitCode::SUCCESS,
-                Ok(_) => ExitCode::FAILURE,
-                Err(err) => {
-                    eprintln!("Errore lettura memoria neurale: {err}");
-                    ExitCode::FAILURE
-                }
-            }
-        }
-        "sync-git" | "git-sync" => {
-            let mut cmd = std::process::Command::new("python");
-            cmd.env("PYTHONPATH", "python");
-            cmd.args(["-m", "makima_lab", "sync-git"]);
-            match cmd.status() {
-                Ok(status) if status.success() => ExitCode::SUCCESS,
-                Ok(_) => ExitCode::FAILURE,
-                Err(err) => {
-                    eprintln!("Errore esecuzione sincronizzazione Git: {err}");
-                    ExitCode::FAILURE
-                }
-            }
-        }
+        "memory" => run_lab_sidecar(&["memory"], Duration::from_secs(60)),
+        "sync-git" | "git-sync" => run_lab_sidecar(&["sync-git"], Duration::from_secs(180)),
         "daemon" | "watch" => {
             let interval = args.get(2).map(|s| s.as_str()).unwrap_or("15");
+            // Processo lungo: niente timeout del bridge.
             let mut cmd = std::process::Command::new("python");
             cmd.env("PYTHONPATH", "python");
             cmd.args(["-m", "makima_lab", "daemon", interval]);
@@ -716,6 +641,7 @@ fn main() -> ExitCode {
         }
         "lab" => {
             println!("Avvio del laboratorio scientifico Python (makima_lab)...\n");
+            println!("Nota: REPL sperimentale — il forecasting di produzione resta in Rust.\n");
             let mut cmd = std::process::Command::new("python");
             cmd.env("PYTHONPATH", "python");
             cmd.args(["-m", "makima_lab"]);
