@@ -189,7 +189,8 @@ impl ForecastLedger {
         evidence_count: usize,
         model_name: impl Into<String>,
     ) -> ForecastId {
-        let id = ForecastId((self.records.len() + 1) as u64);
+        let next = self.records.iter().map(|r| r.id.0).max().unwrap_or(0) + 1;
+        let id = ForecastId(next);
         let record = ForecastRecord::new_pending(
             id,
             target,
@@ -201,6 +202,15 @@ impl ForecastLedger {
         );
         self.records.push(record);
         id
+    }
+
+    /// Inserisce un record già persistito (es. da SQLite/JSON) senza ricalcolare lo stato.
+    pub fn inject_record(&mut self, record: ForecastRecord) {
+        if self.records.iter().any(|r| r.id == record.id) {
+            return;
+        }
+        self.records.push(record);
+        self.records.sort_by_key(|r| r.id.0);
     }
 
     /// Risolve una specifica previsione univoca tramite il suo `ForecastId`.

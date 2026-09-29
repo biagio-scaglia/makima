@@ -112,14 +112,21 @@ impl MakimaStore {
         }
     }
 
-    /// Applica i dati dello store a un'istanza di [`MakimaEngine`].
+    /// Applica i dati dello store a un'istanza di [`MakimaEngine`] in modo passivo.
+    ///
+    /// Non ricalcola previsioni né aggiorna lo scoring: ripristina osservazioni, esiti e
+    /// ledger così come persistiti, poi ricostruisce l'evaluator dai forecast Resolved.
     pub fn apply_to_engine(&self, engine: &mut MakimaEngine) {
         for obs in &self.observations {
             engine.record_observation(obs.clone());
         }
         for out in &self.outcomes {
-            engine.record_outcome(&out.target, out.occurred, out.timestamp_sec);
+            engine.restore_outcome(out.clone());
         }
+        for rec in &self.forecasts {
+            engine.restore_forecast_record(rec.clone());
+        }
+        engine.rebuild_evaluator_from_ledger();
     }
 
     /// Estrae lo stato corrente da un'istanza di [`MakimaEngine`].
@@ -429,6 +436,8 @@ impl MakimaDb {
     }
 
     /// Carica tutte le osservazioni, esiti e ledger dal database SQLite all'interno di [`MakimaEngine`].
+    ///
+    /// Caricamento passivo: non richiama `record_outcome` (evita doppio scoring).
     pub fn load_into_engine(&self, engine: &mut MakimaEngine) -> rusqlite::Result<()> {
         let mut stmt = self
             .conn
@@ -460,8 +469,7 @@ impl MakimaDb {
         })?;
 
         for out in out_iter {
-            let o = out?;
-            engine.record_outcome(&o.target, o.occurred, o.timestamp_sec);
+            engine.restore_outcome(out?);
         }
 
         let mut f_stmt = self
@@ -508,20 +516,10 @@ impl MakimaDb {
         })?;
 
         for rec in f_iter.flatten() {
-            let exists = engine.ledger().records().iter().any(|r| r.id == rec.id);
-            if !exists {
-                // Inject or update
-                let _ = engine.register_forecast_in_ledger(
-                    rec.target,
-                    rec.created_at_sec,
-                    rec.probability,
-                    rec.window_desc,
-                    rec.evidence_count,
-                    rec.model_name,
-                );
-            }
+            engine.restore_forecast_record(rec);
         }
 
+        engine.rebuild_evaluator_from_ledger();
         Ok(())
     }
 }

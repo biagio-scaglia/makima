@@ -220,6 +220,27 @@ impl MakimaEngine {
         )
     }
 
+    /// Ripristina un esito già persistito senza ricalcolare forecast né aggiornare l'evaluator.
+    pub fn restore_outcome(&mut self, outcome: Outcome) {
+        self.outcomes.push(outcome);
+    }
+
+    /// Ripristina un record di previsione già persistito (Pending o Resolved) nel ledger.
+    pub fn restore_forecast_record(&mut self, record: ForecastRecord) {
+        self.ledger.inject_record(record);
+    }
+
+    /// Ricostruisce l'evaluator dalle previsioni Resolved del ledger (caricamento passivo).
+    pub fn rebuild_evaluator_from_ledger(&mut self) {
+        self.evaluator = Evaluator::new();
+        for rec in self.ledger.records() {
+            if let ForecastStatus::Resolved { actual, .. } = &rec.status {
+                self.evaluator
+                    .add_prediction_outcome(rec.probability, *actual);
+            }
+        }
+    }
+
     /// Restituisce la lista di osservazioni storiche attualmente caricate.
     #[must_use]
     pub fn observations(&self) -> &[Observation] {
