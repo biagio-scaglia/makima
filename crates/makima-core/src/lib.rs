@@ -8,8 +8,10 @@
 pub mod daemon;
 pub mod eval;
 pub mod forecast;
+pub mod intent;
 pub mod laplace;
 pub mod prob;
+pub mod python_bridge;
 pub mod storage;
 
 pub use daemon::{AutonomousWatcher, CognitivePulse, PulseTrigger, PulseUrgency};
@@ -17,10 +19,15 @@ pub use eval::{CalibrationBin, CalibrationRating, EvaluationReport, Evaluator, O
 pub use forecast::{
     Forecast, ForecastError, ForecastId, ForecastLedger, ForecastRecord, ForecastStatus,
 };
+pub use intent::{IntentKind, StructuredIntent, TemporalRelation, TemporalWindow};
 pub use laplace::{LaplaceMail, TargetSummary};
 pub use prob::{
     Bernoulli, BetaDistribution, ContinuousDistribution, DiscreteDistribution, Distribution,
     PoissonDistribution, ProbError, Probability,
+};
+pub use python_bridge::{
+    parse_structured_intent, parse_structured_intent_default, run_makima_lab, PythonBridgeError,
+    DEFAULT_PYTHON_TIMEOUT,
 };
 pub use storage::{MakimaDb, MakimaStore};
 
