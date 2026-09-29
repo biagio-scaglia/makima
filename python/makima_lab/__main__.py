@@ -254,7 +254,7 @@ def handle_memory_status() -> None:
     print(f"Norma L2 Totale:          {norm:.4f}")
     print(f"Passi di Apprendimento:   {engine.total_learning_steps}")
     print(f"Campione Vettore [0..7]:  {[round(x, 4) for x in vec_sample]}")
-        print(f"Dispositivo PyTorch:      {engine.device}")
+    print(f"Dispositivo PyTorch:      {engine.device}")
     print("FORECASTING_PATH:          False (lab — non usa questi prior per il core)")
     print("--------------------------------------------------\n")
 
