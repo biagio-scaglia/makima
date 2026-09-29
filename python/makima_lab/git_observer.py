@@ -174,7 +174,9 @@ class GitObserver:
             "span_days": span_days,
             "commit_rate_per_day": rate_per_day,
             "latest_commit": commits[0].commit_hash[:7] if commits else None,
-            "memory_norm": float(engine.user_memory.norm().item()),
+            "memory_norm": (
+                float(engine.user_memory.norm().item()) if engine is not None else 0.0
+            ),
         }
 
     def poll_new_commits(self) -> List[GitCommit]:

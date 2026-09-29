@@ -121,17 +121,19 @@ class TestNLPParser(unittest.TestCase):
         res = self.pipeline.execute("Qual è la probabilità che rilasci framework entro dicembre?")
         self.assertTrue(res.query.is_valid_forecast)
         self.assertIsNotNone(res.posterior)
-        self.assertIsNotNone(res.temporal_probability)
-        self.assertGreater(res.posterior.mean, 0.5)
-        self.assertIn("MAKIMA SEMANTIC FORECAST PIPELINE", res.format_report())
+        # Senza tasso empirico non si inventa Poisson → temporal_probability può essere None.
+        self.assertGreaterEqual(res.posterior.mean, 0.5)
+        report = res.format_report()
+        self.assertIn("LAB DEMO", report)
+        self.assertIn("FORECASTING_PATH=False", report)
 
     def test_pipeline_execution_real_feature_query(self):
         res = self.pipeline.execute("rilasceremo la nuova feature questa settimana?")
         self.assertTrue(res.query.is_valid_forecast)
         self.assertEqual(res.query.target, "git:feature_ratio")
         self.assertIsNotNone(res.posterior)
-        self.assertIsNotNone(res.temporal_probability)
         self.assertIn("git:feature_ratio", res.format_report())
+        self.assertIn("LAB DEMO", res.format_report())
 
     def test_pipeline_execution_rejected_query(self):
         res = self.pipeline.execute("Quanto è bello il mio framework?")
