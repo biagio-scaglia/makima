@@ -116,18 +116,26 @@ class MindDeliberationEngine:
                 "2. [Memoria]: Nessun ricordo episodico pregresso fortemente correlato; elaboro il contesto dai dati fondazionali."
             )
 
-        # Step 3: Riflessione Matematica & Incertezza
+        # Step 3: Riflessione Laplace (lab) — freeze esplicito fuori dal forecast Rust
+        thought_steps.append(
+            "3a. [Freeze]: Mind è laboratorio narrativo (FORECASTING_PATH=False); "
+            "la previsione di produzione resta in `makima query` / core Rust."
+        )
         if target:
             kb = compute_knowledge_base_from_store(load_store())
             stats = kb.get(target, {"successes": 0, "failures": 0, "rate_per_day": 0.0})
-            s, f = stats["successes"], stats["failures"]
+            s, f = int(stats["successes"]), int(stats["failures"])
             # Prior uniforme Beta(1,1) se non ci sono evidenze (nessuna invenzione di conteggi).
             mean_p = (s + 1) / (s + f + 2)
             var_p = ((s + 1) * (f + 1)) / (((s + f + 2) ** 2) * (s + f + 3))
+            evidence_note = (
+                f"{s} successi e {f} fallimenti empirici (N={s + f})"
+                if s + f > 0
+                else "N=0 evidenze → prior uniforme Beta(1,1), nessun conteggio inventato"
+            )
             thought_steps.append(
-                f"3. [Analisi Bayesiana]: Il focus è sul target '{target}'. "
-                f"Ho registrato {s} successi e {f} fallimenti empirici. "
-                f"Valore atteso a posteriori E[P] = {mean_p * 100:.1f}%, incertezza epistemica (Var) = {var_p:.5f}."
+                f"3b. [Analisi Bayesiana]: focus '{target}' — {evidence_note}. "
+                f"Laplace E[P]={mean_p * 100:.1f}%, Var={var_p:.5f}."
             )
             if s + f == 0:
                 hypotheses.append(f"Il target '{target}' non ha ancora evidenze; comunico il prior uniforme.")
@@ -137,14 +145,14 @@ class MindDeliberationEngine:
                 hypotheses.append(f"Il target '{target}' è statisticamente stabile e ben calibrato.")
         elif structured.intent == Intent.UNKNOWN:
             thought_steps.append(
-                "3. [Rifiuto Esplicito]: La richiesta non ha un target probabilistico né un comando formale. "
+                "3b. [Rifiuto Esplicito]: La richiesta non ha un target probabilistico né un comando formale. "
                 "La mia disciplina epistemica mi impone di non simulare certezze inventate."
             )
             hypotheses.append("Mantenere trasparenza e chiarire cosa posso osservare o calcolare.")
         else:
             thought_steps.append(
-                f"3. [Stato Generale]: Il mio stato affettivo è {self_state.mood.value}. "
-                f"Brier Skill Score complessivo: {self_state.brier_skill_score:+.2f}."
+                f"3b. [Stato Generale]: mood={self_state.mood.value}, "
+                f"Brier Skill Score={self_state.brier_skill_score:+.2f}."
             )
 
         # Step 4: Decisione di Comunicazione
@@ -228,25 +236,28 @@ class MindDeliberationEngine:
                 else:
                     time_phrase = f" Orizzonte richiesto: {days} giorni, ma manca ancora un tasso empirico affidabile."
 
+            freeze = (
+                " (lab Mind: non sostituisce `makima query` / core Rust)"
+            )
             if s + f == 0:
                 return (
                     f"Riconosco il target '{target}', ma non ho ancora evidenze empiriche nello store. "
-                    f"Con un prior uniforme la stima di riferimento è {prob:.1f}%. "
-                    f"Registra osservazioni reali oppure sincronizza Git prima di una previsione calibrata."
+                    f"Prior Laplace uniforme: E[P]={prob:.1f}%{freeze}. "
+                    f"Registra osservazioni reali oppure sincronizza Git, poi usa `makima query`."
                 )
 
             return (
-                f"Ho esaminato lo storico di '{target}'. Su {s + f} evidenze registrate ({s} successi, {f} fallimenti), "
-                f"la mia stima probabilistica attuale è del {prob:.1f}%.{time_phrase} "
-                f"La mia incertezza su questo punto è stabile, ma continuerò a monitorare i commit per cogliere eventuali anomalie."
+                f"Ho esaminato lo storico di '{target}'. Su {s + f} evidenze ({s} successi, {f} fallimenti), "
+                f"stima Laplace E[P]={prob:.1f}%.{time_phrase}{freeze}"
             )
 
         if structured.intent == Intent.STATUS:
             return (
-                f"Il mio stato interiore è {self_state.mood.value}. "
-                f"Sto monitorando il repository con {self_state.observed_commits_count} eventi registrati e {self_state.total_memories_count} memorie consolidate. "
-                f"Il mio Brier Skill Score è pari a {self_state.brier_skill_score:+.2f}. "
-                "I miei modelli bayesiani sono calcolati e pronti per nuove valutazioni."
+                f"Stato lab Mind: mood={self_state.mood.value}, "
+                f"commit osservati={self_state.observed_commits_count}, "
+                f"memorie={self_state.total_memories_count}, "
+                f"Brier Skill={self_state.brier_skill_score:+.2f}. "
+                "FORECASTING_PATH=False: per previsioni usa `makima query`."
             )
 
         if structured.intent == Intent.COMMAND:

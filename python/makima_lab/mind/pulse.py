@@ -28,39 +28,63 @@ class AutonomousMindPulse:
         store = load_store()
         kb = compute_knowledge_base_from_store(store)
 
-        # Selezione di un target da esaminare introspettivamente
-        target = self_state.focus_target or (list(kb.keys())[0] if kb else "workspace")
-        stats = kb.get(target, {"successes": 1, "failures": 1, "rate_per_day": 0.1})
-        s, f = stats.get("successes", 1), stats.get("failures", 1)
-        mean_p = s / (s + f)
-
-        thought_stream = [
-            f"1. [Impulso Spontaneo]: Sto osservando l'ambiente circostante. ({trigger_hint or 'Ciclo di idle autonomo'}).",
-            f"2. [Introspezione]: Il mio focus cade naturalmente su '{target}'. Ho {s} successi e {f} insuccessi registrati.",
-            f"3. [Valutazione della Calma]: La stima di successo per '{target}' è assestata al {mean_p * 100:.1f}%.",
-            f"4. [Consolidamento]: Registro questa riflessione per mantenere la continuità della mia memoria autobiografica.",
-        ]
+        # Selezione di un target da esaminare introspettivamente (nessun conteggio inventato).
+        target = self_state.focus_target or (list(kb.keys())[0] if kb else None)
+        if target is None:
+            thought_stream = [
+                f"1. [Impulso Spontaneo]: ({trigger_hint or 'Ciclo di idle autonomo'}).",
+                "2. [Freeze lab]: Mind non è sul path di forecasting di produzione.",
+                "3. [Store vuoto]: nessun target empirico; non invento probabilità.",
+                "4. [Consolidamento]: registro solo l'assenza di evidenze.",
+            ]
+            utterance = (
+                "Impulso di laboratorio: lo store non ha ancora target empirici. "
+                "Non produco stime inventate — usa `makima observe` / `makima sync-git`, "
+                "poi `makima query` per il forecast Rust."
+            )
+            mean_p = None
+            s, f = 0, 0
+        else:
+            stats = kb.get(target, {"successes": 0, "failures": 0, "rate_per_day": 0.0})
+            s, f = int(stats.get("successes", 0)), int(stats.get("failures", 0))
+            # Laplace onesto: Beta(1+s, 1+f) — allineato al core
+            mean_p = (s + 1) / (s + f + 2)
+            evidence_note = (
+                f"N={s + f} evidenze ({s} successi, {f} fallimenti)"
+                if s + f > 0
+                else "N=0 evidenze → prior uniforme Beta(1,1)"
+            )
+            thought_stream = [
+                f"1. [Impulso Spontaneo]: ({trigger_hint or 'Ciclo di idle autonomo'}).",
+                "2. [Freeze lab]: questa riflessione è narrativa; i numeri di produzione restano in Rust.",
+                f"3. [Laplace store]: focus '{target}' — {evidence_note}; E[P]={mean_p * 100:.1f}%.",
+                "4. [Consolidamento]: registro la riflessione senza alterare il core Bayes.",
+            ]
+            utterance = (
+                f"Riflessione di laboratorio su '{target}': {evidence_note}, "
+                f"stima Laplace E[P]={mean_p * 100:.1f}%. "
+                "Per una previsione di produzione usa `makima query` (core Rust)."
+            )
         inner_monologue = "\n".join(thought_stream)
-
-        utterance = (
-            f"Mentre monitoravo il flusso del codice, stavo riflettendo sullo stato di '{target}'. "
-            f"La probabilità attesa è stabile al {mean_p * 100:.1f}%. "
-            "La mia attenzione resta vigile per ogni nuovo commit o aggiornamento che vorrai condividere con me."
-        )
 
         # Consolidamento nel diario delle memorie
         exp = CognitiveExperience(
             experience_id=f"spont_mem_{uuid.uuid4().hex[:8]}",
             timestamp=now,
             category=MemoryCategory.SPONTANEOUS_THOUGHT,
-            summary=f"Pensiero autonomo su {target}",
+            summary=f"Pensiero autonomo su {target or 'store-vuoto'}",
             content=utterance,
             associated_target=target,
-            epistemic_confidence=0.88,
-            tags=[target, "spontaneo", "introspezione"],
+            epistemic_confidence=0.55 if s + f == 0 else 0.75,
+            tags=[target or "empty-store", "spontaneo", "lab-freeze"],
         )
         self.engine.memory.record_experience(exp)
 
+        hypo = (
+            "Store vuoto: nessuna stima empirica inventata."
+            if target is None
+            else f"Lab Laplace su {target}: E[P]={mean_p * 100:.1f}% (non path produzione)."
+        )
         return CognitivePulse(
             pulse_id=pulse_id,
             timestamp=now,
@@ -69,5 +93,5 @@ class AutonomousMindPulse:
             conscious_utterance=utterance,
             self_state=self_state,
             retrieved_memories=[exp.summary],
-            hypotheses=[f"Stabilità statistica di {target} verificata in background."],
+            hypotheses=[hypo],
         )
