@@ -1,4 +1,8 @@
-"""Pipeline semantica end-to-end per la risoluzione e il calcolo probabilistico da NL."""
+"""Pipeline NLP: contratto produzione = StructuredIntent; Bayes Python solo lab demo.
+
+Produzione: `process_intent` → JSON → `makima query` (core Rust).
+`execute` / `execute_structured` restano demo Laplace locale (FORECASTING_PATH=False).
+"""
 
 from __future__ import annotations
 import math
@@ -21,6 +25,9 @@ from makima_lab.nlp.schemas.structured_intent import StructuredIntent
 from makima_lab.nlp.parser import SemanticQueryParser
 from makima_lab.storage import compute_knowledge_base_from_store, load_store
 
+# Numeri di forecast di produzione: solo Rust.
+FORECASTING_PATH = False
+
 
 # Catalogo target noti solo per risoluzione semantica (NESSUNA evidenza inventata).
 # Le conteggi empirici devono provenire esclusivamente dallo store persistente.
@@ -39,25 +46,27 @@ KNOWN_TARGET_CATALOG: tuple[str, ...] = (
 
 @dataclass(frozen=True)
 class SemanticForecastResult:
-    """Risultato completo dell'elaborazione semantica e inferenziale."""
+    """Demo Laplace in Python — non sostituisce il forecast Rust."""
     query: ForecastQuery
     posterior: BetaDistribution | None
     temporal_probability: float | None
     entropy_bits: float | None
     explanation: str
     structured_intent: StructuredIntent | None = None
+    lab_demo: bool = True
 
     def format_report(self) -> str:
-        """Formatta il report completo per l'output su console."""
+        """Report lab; per produzione usare `makima query`."""
         lines = [
             "============================================================",
-            "           MAKIMA SEMANTIC FORECAST PIPELINE (NLP)          ",
+            "     MAKIMA NLP LAB DEMO (FORECASTING_PATH=False)           ",
             "============================================================",
             f"Query Utente:         \"{self.query.raw_query}\"",
             f"Intento Riconosciuto: {self.query.intent.value}",
             f"Target Identificato:  {self.query.target if self.query.target else '[Nessuno]'}",
             f"Finestra Temporale:   {self.query.temporal_window}",
             f"Confidenza Parser:    {self.query.confidence * 100:.1f}%",
+            "Nota:                 numeri demo Python — produzione = Rust core",
             "------------------------------------------------------------",
         ]
 
@@ -79,6 +88,8 @@ class SemanticForecastResult:
             lines.append(
                 f"Probabilità Temporale P(T <= window): {self.temporal_probability * 100:.2f}%"
             )
+        else:
+            lines.append("Probabilità Temporale: non calcolata (tasso empirico assente)")
 
         lines.append(
             f"Parametri Posterior:  Beta(alpha={self.posterior.alpha:.2f}, beta={self.posterior.beta:.2f})"
@@ -89,14 +100,15 @@ class SemanticForecastResult:
 
 
 class SemanticForecastPipeline:
-    """Pipeline integrata: Linguaggio Naturale -> Semantic Parser -> Motore Probabilistico."""
+    """NLP → StructuredIntent (produzione) + demo Laplace locale (lab)."""
+
+    FORECASTING_PATH = False
 
     def __init__(self, parser: SemanticQueryParser | None = None, knowledge_base: dict | None = None):
         self.parser = parser or SemanticQueryParser()
         if knowledge_base is not None:
             self.knowledge_base = knowledge_base
         else:
-            # Solo evidenze empiriche dallo storage persistente (nessun seed sintetico).
             store_data = load_store()
             self.knowledge_base = compute_knowledge_base_from_store(store_data)
 
@@ -107,7 +119,7 @@ class SemanticForecastPipeline:
         return list(dict.fromkeys([*observed, *catalog]))
 
     def execute_structured(self, text: str) -> tuple[StructuredIntent, SemanticForecastResult]:
-        """Elabora la query producendo lo StructuredIntent validato e il calcolo probabilistico."""
+        """Demo lab: StructuredIntent + Laplace Python (non produzione)."""
         available_targets = self._available_targets()
         struct = self.parser.parse_structured(text, available_targets=available_targets)
         legacy_query = self.parser.parse(text, available_targets=available_targets)
@@ -120,55 +132,63 @@ class SemanticForecastPipeline:
                 entropy_bits=None,
                 explanation="; ".join(struct.validation_notes) or "Richiesta non valida per il core.",
                 structured_intent=struct,
+                lab_demo=True,
             )
             return struct, res
 
         target = struct.target
         evidence = self.knowledge_base.get(
             target,
-            {"successes": 0, "failures": 0, "historical_days": 1, "rate_per_day": 0.0},
+            {"successes": 0, "failures": 0, "historical_days": 0, "rate_per_day": 0.0},
         )
 
         prior = BetaDistribution.uniform()
         posterior = prior.bayesian_update(
-            successes=evidence["successes"],
-            failures=evidence["failures"],
+            successes=int(evidence["successes"]),
+            failures=int(evidence["failures"]),
         )
 
         bernoulli = Bernoulli(posterior.mean)
         entropy = bernoulli.entropy_bits
 
-        # Calcolo probabilistico temporale analitico
-        temporal_prob = None
-        rate = evidence.get("rate_per_day", 0.1)
+        # Mai inventare rate=0.1: senza tasso empirico → niente Poisson finto.
+        rate = float(evidence.get("rate_per_day", 0.0) or 0.0)
         rel = struct.temporal_window.relation
+        temporal_prob = None
 
-        if rel == TemporalRelation.RELATIVE_INTERVAL and struct.temporal_window.days:
-            days = struct.temporal_window.days
-            temporal_prob = 1.0 - math.exp(-rate * days)
-        elif rel == TemporalRelation.RELATIVE_INTERVAL:
-            temporal_prob = 1.0 - math.exp(-rate * 7.0)
-        elif rel == TemporalRelation.SPECIFIC_DATE:
-            temporal_prob = 1.0 - math.exp(-rate * 30.0)
-        elif rel == TemporalRelation.FUTURE:
-            temporal_prob = posterior.mean
+        if rate > 0.0:
+            if rel == TemporalRelation.RELATIVE_DURATION and struct.temporal_window.days:
+                temporal_prob = 1.0 - math.exp(-rate * float(struct.temporal_window.days))
+            elif rel == TemporalRelation.RELATIVE_DURATION:
+                temporal_prob = 1.0 - math.exp(-rate * 7.0)
+            elif rel == TemporalRelation.SPECIFIC_DATE:
+                temporal_prob = 1.0 - math.exp(-rate * 30.0)
+            elif rel == TemporalRelation.FUTURE:
+                temporal_prob = posterior.mean
+            elif rel == TemporalRelation.PRESENT:
+                temporal_prob = 1.0
+            else:
+                temporal_prob = posterior.mean
         elif rel == TemporalRelation.PRESENT:
             temporal_prob = 1.0
-        else:
-            temporal_prob = posterior.mean
 
         source_desc = "telemetria Git reale" if target.startswith("git:") else "evidenze storiche"
-        total_ev = evidence["successes"] + evidence["failures"]
+        total_ev = int(evidence["successes"]) + int(evidence["failures"])
+        lab_note = " [LAB DEMO — produzione: makima query]"
         if total_ev == 0:
             explanation = (
-                f"Target '{target}' riconosciuto ma senza evidenze empiriche nello store: "
-                f"si usa un prior uniforme Beta(1,1). Registra osservazioni con "
-                f"'makima observe {target} <0|1>' oppure sincronizza Git."
+                f"Target '{target}' senza evidenze empiriche: prior uniforme Beta(1,1). "
+                f"Registra con 'makima observe {target} <0|1>' o sync-git.{lab_note}"
             )
         else:
+            rate_note = (
+                f"rate empirico ~{rate:.2f}/giorno"
+                if rate > 0
+                else "tasso giornaliero assente (nessun Poisson inventato)"
+            )
             explanation = (
-                f"Previsione basata su {source_desc} (target '{target}'): {evidence['successes']} successi, "
-                f"{evidence['failures']} insuccessi registrati, rate stimato ~{rate:.2f} eventi/giorno."
+                f"Demo Laplace su {source_desc} ('{target}'): "
+                f"{evidence['successes']} successi, {evidence['failures']} insuccessi, {rate_note}.{lab_note}"
             )
 
         res = SemanticForecastResult(
@@ -178,20 +198,21 @@ class SemanticForecastPipeline:
             entropy_bits=entropy,
             explanation=explanation,
             structured_intent=struct,
+            lab_demo=True,
         )
         return struct, res
 
     def process_intent(self, text: str) -> StructuredIntent:
-        """Elabora la query testuale e restituisce direttamente lo StructuredIntent validato."""
+        """Contratto di produzione: StructuredIntent validato (nessun Bayes)."""
         return self.parser.parse_structured(text, available_targets=self._available_targets())
 
     def execute(self, text: str) -> SemanticForecastResult:
-        """Esegue l'elaborazione restituendo il SemanticForecastResult."""
+        """Demo Laplace Python (lab). Preferire `process_intent` + `makima query`."""
         _, res = self.execute_structured(text)
         return res
 
     def run(self, text: str) -> SemanticForecastResult:
-        """Alias compatibile per l'esecuzione della pipeline."""
+        """Alias lab di `execute`."""
         return self.execute(text)
 
 

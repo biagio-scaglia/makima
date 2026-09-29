@@ -22,10 +22,17 @@ from makima_lab.nlp.pipeline import (
     MakimaNLPPipeline,
     SemanticForecastPipeline,
     SemanticForecastResult,
+    FORECASTING_PATH,
 )
 from makima_lab.nlp.models import ForecastQuery
 
+# Contratto produzione: StructuredIntent via process_intent / parse-intent.
+# I numeri di forecast NON si calcolano in questo pacchetto.
+INTENT_CONTRACT_PATH = True
+
 __all__ = [
+    "INTENT_CONTRACT_PATH",
+    "FORECASTING_PATH",
     "Intent",
     "TemporalRelation",
     "TemporalWindow",

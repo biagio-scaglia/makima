@@ -339,11 +339,30 @@ class TestEndToEndPipeline(unittest.TestCase):
         self.assertIsInstance(json_dict["confidence"], float)
 
     def test_full_pipeline_legacy_compatibility(self):
+        from makima_lab.nlp.pipeline import FORECASTING_PATH
+
         legacy_pipeline = SemanticForecastPipeline()
+        self.assertFalse(FORECASTING_PATH)
+        self.assertFalse(legacy_pipeline.FORECASTING_PATH)
         result = legacy_pipeline.run("Qual è la probabilità per il deploy?")
         self.assertIsNotNone(result.query)
         self.assertEqual(result.query.target, "deploy")
+        self.assertTrue(result.lab_demo)
         self.assertIn("deploy", result.explanation.lower())
+        self.assertIn("LAB DEMO", result.explanation)
+        self.assertIn("FORECASTING_PATH=False", result.format_report())
+
+    def test_lab_demo_no_invented_poisson_rate(self):
+        """Senza tasso empirico non si inventa un Poisson con λ=0.1."""
+        pipe = SemanticForecastPipeline(
+            knowledge_base={
+                "deploy": {"successes": 2, "failures": 1, "historical_days": 0, "rate_per_day": 0.0}
+            }
+        )
+        _, res = pipe.execute_structured("Qual è la probabilità per il deploy entro 7 giorni?")
+        self.assertEqual(res.query.target, "deploy")
+        self.assertIsNone(res.temporal_probability)
+        self.assertIn("nessun Poisson inventato", res.explanation)
 
 
 if __name__ == "__main__":
