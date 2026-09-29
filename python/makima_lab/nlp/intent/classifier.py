@@ -1,4 +1,4 @@
-"""Classificatore modulare di intenti semantici per Makima."""
+"""Classificatore di intenti: pattern lessicali + prototype matching semantico."""
 
 from __future__ import annotations
 import re
@@ -8,9 +8,8 @@ from makima_lab.nlp.embeddings.representation import SemanticRepresentation
 
 
 class IntentClassifier:
-    """Classifica l'intento della query combinando pattern lessicali, indizi sintattici e similarità semantica."""
+    """Combina regex tipizzati e similarità coseno verso prototipi di intento."""
 
-    # Pattern specifici per ciascun intento
     INTENT_PATTERNS: Dict[Intent, list[str]] = {
         Intent.TEMPORAL_QUERY: [
             r"\bquando\b",
@@ -18,7 +17,7 @@ class IntentClassifier:
             r"\bquale\s+giorno\b",
             r"\ba\s+che\s+ora\b",
             r"\bentro\s+quando\b",
-            r"\bcosa\s+(?:sto|stiamo)\s+(?:facendo|sviluppando)\b",
+            r"\bcosa\s+(?:sto|stiamo)\s+(?:facendo|sviluppendo)\b",
             r"\bcosa\s+ho\s+fatto\b",
             r"\bcosa\s+abbiamo\s+fatto\b",
         ],
@@ -80,7 +79,41 @@ class IntentClassifier:
         ],
     }
 
-    # Frasi tipiche o chitchat fuori dominio da respingere direttamente come UNKNOWN
+    # Frasi prototipo per matching semantico (complemento ai regex).
+    INTENT_PROTOTYPES: Dict[Intent, list[str]] = {
+        Intent.TEMPORAL_QUERY: [
+            "quando rilascerò il prossimo framework",
+            "in che data avverrà il deploy",
+            "quando ho completato i test",
+        ],
+        Intent.QUERY: [
+            "qual è la probabilità di successo del deploy",
+            "quanto è probabile che la build passi",
+            "prevedi se riusciremo a rilasciare",
+        ],
+        Intent.COMMAND: [
+            "sincronizza i commit di git",
+            "aggiorna e ricalcola i prior",
+            "avvia la calibrazione del motore",
+        ],
+        Intent.INFORMATION: [
+            "cosa significa il brier score",
+            "come funziona l aggiornamento bayesiano",
+            "spiega la distribuzione beta",
+            "chi sei makima",
+        ],
+        Intent.OBSERVATION: [
+            "oggi ho completato il deploy con successo",
+            "ho registrato un fallimento della build",
+            "rilascio effettuato in produzione",
+        ],
+        Intent.STATUS: [
+            "qual è lo stato del sistema",
+            "mostra la diagnostica del motore",
+            "riepilogo status makima",
+        ],
+    }
+
     UNKNOWN_PATTERNS = [
         r"\bcome\s+stai\b",
         r"\braccontami\s+(?:una|un)\s+barzelletta\b",
@@ -91,23 +124,20 @@ class IntentClassifier:
         r"\bsei\s+bello\b",
     ]
 
+    SEMANTIC_WEIGHT = 0.55
+    SEMANTIC_MIN_SIM = 0.38
+
     def __init__(self, representation: SemanticRepresentation | None = None) -> None:
         self.repr = representation or SemanticRepresentation()
 
     def classify(self, text: str) -> Tuple[Intent, float, Dict[str, float]]:
-        """Classifica il testo in un Intent con probabilità e punteggi associati.
-        
-        Returns:
-            (Intent, confidence_score, score_breakdown)
-        """
+        """Classifica il testo: regex + boost semantico sui prototipi."""
         normalized = text.lower().strip()
 
-        # Controllo esplicito chitchat / fuori dominio
         for p in self.UNKNOWN_PATTERNS:
             if re.search(p, normalized):
                 return Intent.UNKNOWN, 0.95, {"unknown_rejection": 0.95}
 
-        # Calcola evidenze per ciascun intento
         scores: Dict[Intent, float] = {
             Intent.QUERY: 0.0,
             Intent.TEMPORAL_QUERY: 0.0,
@@ -115,18 +145,20 @@ class IntentClassifier:
             Intent.INFORMATION: 0.0,
             Intent.OBSERVATION: 0.0,
             Intent.STATUS: 0.0,
-            Intent.UNKNOWN: 0.1,  # Baseline di incertezza
+            Intent.UNKNOWN: 0.1,
         }
 
-        # 1. Analisi dei pattern sintattici
+        # 1. Pattern lessicali
         for intent, patterns in self.INTENT_PATTERNS.items():
             for p in patterns:
                 if re.search(p, normalized):
                     scores[intent] += 0.45
 
-        # Regole di correlazione semantica
         if re.search(r"\bquando\b", normalized):
-            if any(k in normalized for k in ["rilasc", "release", "deploy", "finir", "completer", "arriver"]):
+            if any(
+                k in normalized
+                for k in ["rilasc", "release", "deploy", "finir", "completer", "arriver"]
+            ):
                 scores[Intent.TEMPORAL_QUERY] += 0.35
                 scores[Intent.QUERY] += 0.25
             else:
@@ -135,16 +167,43 @@ class IntentClassifier:
         if re.search(r"\bprobabilit[aà]|preved|forecast\b", normalized):
             scores[Intent.QUERY] += 0.40
 
-        # Normalizzazione dei punteggi in probabilità relative
+        # 2. Prototype matching semantico: boost solo sul miglior intento
+        semantic_hits: Dict[str, float] = {}
+        best_sem_intent: Intent | None = None
+        best_sem_score = 0.0
+        for intent, prototypes in self.INTENT_PROTOTYPES.items():
+            best_sim = 0.0
+            for proto in prototypes:
+                try:
+                    sim = float(self.repr.similarity(normalized, proto))
+                except Exception:
+                    sim = 0.0
+                if sim > best_sim:
+                    best_sim = sim
+            semantic_hits[intent.value] = round(best_sim, 4)
+            if best_sim > best_sem_score:
+                best_sem_score = best_sim
+                best_sem_intent = intent
+
+        if best_sem_intent is not None and best_sem_score >= self.SEMANTIC_MIN_SIM:
+            scores[best_sem_intent] += self.SEMANTIC_WEIGHT * best_sem_score
+
         total = sum(scores.values())
-        prob_breakdown = {k.value: round(v / total, 4) if total > 0 else 0.0 for k, v in scores.items()}
+        prob_breakdown = {
+            k.value: round(v / total, 4) if total > 0 else 0.0 for k, v in scores.items()
+        }
+        for k, v in semantic_hits.items():
+            prob_breakdown[f"semantic_{k}"] = v
 
         best_intent = max(scores, key=scores.get)
         best_score = scores[best_intent]
 
-        # Se il punteggio massimo è troppo debole o non supera la soglia minima, classifica come UNKNOWN
         if best_score < 0.35:
             return Intent.UNKNOWN, 0.50, prob_breakdown
 
-        confidence = min(0.98, max(0.40, prob_breakdown.get(best_intent.value, 0.5) * 1.3))
+        # Confidenza: mix tra quota relativa e score assoluto; floor se pattern forti
+        relative = prob_breakdown.get(best_intent.value, 0.5)
+        confidence = min(0.98, max(0.40, 0.55 * relative + 0.30 * min(1.0, best_score)))
+        if best_score >= 0.70:
+            confidence = max(confidence, 0.62)
         return best_intent, confidence, prob_breakdown
