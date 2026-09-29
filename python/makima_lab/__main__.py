@@ -204,20 +204,25 @@ def handle_chat_interactive() -> None:
 
 
 def handle_journal(text: str) -> None:
-    """Registra una frase dell'utente, la percepisce con la rete neurale, aggiorna la memoria e salva su SQLite."""
+    """Registra un fatto: diario episodico + SQLite + apprendimento neurale."""
     from makima_lab.neural import get_neural_engine
+    from makima_lab.mind import EpisodicMemoryStore
+
     engine = get_neural_engine()
     perception = engine.perceive(text, update_memory=True)
 
-    # Passo di apprendimento online automatico
     loss = engine.learn_step(
         text=text,
         intent_label=perception.intent,
+        action_label="REMEMBER",
         polarity_label=perception.polarity,
         auto_save=True,
     )
 
-    tags = [perception.intent]
+    # Diario autobiografico usato da chat/think (BrainLoop)
+    fact = EpisodicMemoryStore().record_developer_fact(text)
+
+    tags = [perception.intent, "tell"]
     entry_id = record_journal_entry(
         content=text,
         tags=tags,
@@ -227,14 +232,16 @@ def handle_journal(text: str) -> None:
             "polarity": perception.polarity,
             "memory_norm": perception.memory_norm,
             "loss": loss,
+            "episodic_id": fact.experience_id,
         },
     )
 
     print("\n[ Makima ha percepito e memorizzato ]")
     print(perception.format_report())
-    print(f"\n-> Registrato in SQLite (.makima/makima.db) [Entry #{entry_id}]")
-    print(f"-> Passo di apprendimento neurale completato (Loss AdamW: {loss:.4f})")
-    print(f"-> Memoria latente utente aggiornata (Norma L2: {perception.memory_norm:.4f})\n")
+    print(f"\n-> Diario episodico: .makima/mind_journal.jsonl [{fact.experience_id}]")
+    print(f"-> SQLite journal:   .makima/makima.db [Entry #{entry_id}]")
+    print(f"-> Apprendimento neurale (Loss: {loss:.4f}, Mem L2: {perception.memory_norm:.4f})")
+    print("-> Ora puoi richiamarlo con: chat / think\n")
 
 
 def handle_neural_inspection(text: str) -> None:
