@@ -1,6 +1,7 @@
 """
-Cognitive Neural Engine and continuous online learning manager for Makima.
-Bridges PyTorch deep learning with SQLite Event Sourcing and Bayesian Core.
+Cognitive Neural Engine — laboratorio (FORECASTING_PATH=False).
+
+Percezione soft + prior *suggeriti*. Non alimenta il forecast Rust di produzione.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from .models import MakimaMindNet, INTENTS, INTENT2IDX, IDX2INTENT
 
 @dataclass
 class NeuralInferenceResult:
-    """Structured perception result from Makima's neural network."""
+    """Percezione neurale di laboratorio — prior solo suggeriti."""
 
     text: str
     intent: str
@@ -31,24 +32,33 @@ class NeuralInferenceResult:
     lambda_rate: float
     memory_norm: float
     latent_vector: List[float] = field(default_factory=list)
+    for_forecasting: bool = False
+    priors_are_suggestions: bool = True
 
     def format_report(self) -> str:
-        """Formatted human-readable cognitive report."""
-        intents_str = ", ".join(f"{k}: {v:.1%}" for k, v in sorted(self.intent_distribution.items(), key=lambda x: -x[1])[:3])
+        """Report console con freeze lab esplicito."""
+        intents_str = ", ".join(
+            f"{k}: {v:.1%}"
+            for k, v in sorted(self.intent_distribution.items(), key=lambda x: -x[1])[:3]
+        )
         return (
-            f"--- [ Makima Neural Perception ] ---\n"
+            f"--- [ Makima Neural Perception — LAB / FORECASTING_PATH=False ] ---\n"
             f"Input Testo:        \"{self.text}\"\n"
-            f"Intento Rilevato:   {self.intent.upper()} (confidenza {self.intent_confidence:.1%})\n"
+            f"Intento soft:       {self.intent.upper()} (confidenza {self.intent_confidence:.1%})\n"
             f"Top Distribuzione:  {intents_str}\n"
             f"Polarità / Conf:    {self.polarity:.3f} (Incertezza: {self.uncertainty:.3f})\n"
-            f"Priors Bayesiani:   Beta(α={self.prior_alpha:.2f}, β={self.prior_beta:.2f}), Poisson(λ={self.lambda_rate:.2f})\n"
+            f"Prior SUGGERITI:    Beta(α={self.prior_alpha:.2f}, β={self.prior_beta:.2f}), "
+            f"λ≈{self.lambda_rate:.2f}  ← non posterior di produzione\n"
             f"Stato Memoria L2:   {self.memory_norm:.4f}\n"
-            f"------------------------------------"
+            f"Forecast path:      NO — usa `makima query`\n"
+            f"----------------------------------------------------------------"
         )
 
 
 class MakimaNeuralEngine:
-    """High-level cognitive neural engine for Makima."""
+    """Motore neurale di laboratorio (intent soft + prior suggeriti)."""
+
+    FORECASTING_PATH = False
 
     def __init__(
         self,
@@ -67,12 +77,11 @@ class MakimaNeuralEngine:
         self.default_checkpoint = checkpoint_path or os.path.join(".makima", "makima_brain.pt")
         self.total_learning_steps = 0
 
-        # Auto-load existing weights if available
         if os.path.exists(self.default_checkpoint):
             self.load_brain(self.default_checkpoint)
 
     def perceive(self, text: str, update_memory: bool = True) -> NeuralInferenceResult:
-        """Processes a natural language string and produces a neural perception report."""
+        """Percezione soft; prior clampati (≥1) e mai per il core Rust."""
         self.model.eval()
         tokens = self.tokenizer.encode(text, max_length=32)
         input_tensor = torch.tensor([tokens], dtype=torch.long, device=self.device)
@@ -82,7 +91,6 @@ class MakimaNeuralEngine:
             if update_memory:
                 self.user_memory = new_memory
 
-            # Parse intent distribution
             logits = outputs["intent_logits"][0]
             probs = torch.softmax(logits, dim=-1).cpu().numpy()
             intent_dist = {IDX2INTENT[i]: float(probs[i]) for i in range(len(INTENTS))}
@@ -94,9 +102,9 @@ class MakimaNeuralEngine:
             latent_vec = outputs["latent_representation"][0].cpu().tolist()
             polarity = float(outputs["polarity"][0].item())
             uncertainty = float(outputs["uncertainty"][0].item())
-            alpha_p = float(outputs["alpha_prior"][0].item())
-            beta_p = float(outputs["beta_prior"][0].item())
-            lambda_r = float(outputs["lambda_rate"][0].item())
+            alpha_p = max(1.0, float(outputs["alpha_prior"][0].item()))
+            beta_p = max(1.0, float(outputs["beta_prior"][0].item()))
+            lambda_r = max(0.0, float(outputs["lambda_rate"][0].item()))
             mem_norm = float(torch.norm(self.user_memory, p=2).item())
 
         return NeuralInferenceResult(
@@ -112,6 +120,8 @@ class MakimaNeuralEngine:
             lambda_rate=lambda_r,
             memory_norm=mem_norm,
             latent_vector=latent_vec,
+            for_forecasting=False,
+            priors_are_suggestions=True,
         )
 
     def learn_step(

@@ -158,7 +158,8 @@ class MakimaMindNet(nn.Module):
         uncertainty = torch.sigmoid(bayes_raw[:, 1])
         alpha_prior = F.softplus(bayes_raw[:, 2]) + 1.0
         beta_prior = F.softplus(bayes_raw[:, 3]) + 1.0
-        lambda_rate = F.softplus(bayes_raw[:, 4]) + 0.1
+        # λ ≥ 0 senza floor inventato (0.1); softplus già ≥ 0
+        lambda_rate = F.softplus(bayes_raw[:, 4])
 
         outputs = {
             "intent_logits": intent_logits,

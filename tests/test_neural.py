@@ -61,14 +61,19 @@ class TestMakimaNeuralMind(unittest.TestCase):
         self.assertIn(res.intent, ["query", "journal", "routine", "outcome", "fact"])
         self.assertGreaterEqual(res.intent_confidence, 0.0)
         self.assertLessEqual(res.intent_confidence, 1.0)
-        self.assertGreater(res.prior_alpha, 0.0)
-        self.assertGreater(res.prior_beta, 0.0)
-        self.assertGreater(res.lambda_rate, 0.0)
+        self.assertGreaterEqual(res.prior_alpha, 1.0)
+        self.assertGreaterEqual(res.prior_beta, 1.0)
+        self.assertGreaterEqual(res.lambda_rate, 0.0)
         self.assertGreaterEqual(res.memory_norm, 0.0)
 
         # Test report formatting
         report = res.format_report()
         self.assertIn("Makima Neural Perception", report)
+        self.assertIn("FORECASTING_PATH=False", report)
+        self.assertFalse(res.for_forecasting)
+        self.assertTrue(res.priors_are_suggestions)
+        self.assertGreaterEqual(res.prior_alpha, 1.0)
+        self.assertGreaterEqual(res.prior_beta, 1.0)
 
     def test_online_learning_step_and_checkpoint(self):
         initial_steps = self.engine.total_learning_steps
