@@ -81,7 +81,7 @@ I componenti cardine del sistema sono:
 2. **CLI Native Runner (`crates/makima-cli`)**: eseguibile nativo ad alte prestazioni (`makima.exe`) per consultare la diagnostica, registrare evidenze e orchestrare le previsioni con latenza sub-second.
 3. **Desktop GUI & Second Brain (`crates/makima-gui`)**: applicazione desktop nativa ultra-reattiva (Tauri v2 + Canvas Physics + CSS Glassmorphism) con visualizzatore a grafi sinaptici, dashboard Beta e chat assistente.
 4. **Mente Cognitiva & Deliberazione (`python/makima_lab/mind`)**: laboratorio narrativo (fuori dal forecast) con deliberazione a stadi, Laplace onesto dallo store e giornale autobiografico.
-5. **NLP Multi-Stadio (`python/makima_lab/nlp`)**: pipeline euristica a stadi (preprocessing, intent regex, target matching, temporale, confidenza, validazione) che emette `StructuredIntent` JSON verso il core Rust. Non è un classificatore neurale end-to-end.
+5. **NLP Multi-Stadio (`python/makima_lab/nlp`)**: `process_intent` → `StructuredIntent` verso Rust; Laplace Python solo demo lab (`FORECASTING_PATH=False`).
 6. **Semantic Embedder (`python/makima_lab/embeddings.py`)**: MiniLM opzionale (`pip install -e ".[nlp]"`) con fallback hash blake2b riproducibile.
 7. **Osservatore Git Reale (`python/makima_lab/git_observer.py`)**: monitoraggio dei commit dal repository Git locale per alimentare automaticamente target empirici (`git:feature_ratio`, `git:test_discipline`).
 8. **SLM Locale Opzionale (`python/makima_lab/llm`)**: Qwen 2.5 0.5B solo explain/digest **grounded** (temp=0, ancore numeriche, fallback deterministico; `FORECASTING_PATH=False`).
@@ -285,7 +285,7 @@ Per garantire la massima trasparenza tecnica verso sviluppatori e contributori, 
 | **Telemetria Git Reale & Daemon** | 🟢 **Implementato** | Parser commit bilingue (italiano/inglese) e daemon in background. |
 | **Pipeline NLP Multi-Stadio → StructuredIntent** | 🟢 **Implementato** | Parser euristico + validazione; CLI/GUI consumano JSON e calcolano il forecast in Rust. |
 | **Vettorizzazione Semantica Embeddings** | 🟡 **Opzionale** | MiniLM se installato (`pip install -e ".[nlp]"`); altrimenti fallback hash blake2b riproducibile. |
-| **Mente Neurale Cognitiva (`MakimaMindNet`)**| 🟡 **Sperimentale** | Path parallelo PyTorch (ispezione `neural`); non è il parser di produzione. |
+| **Mente Neurale Cognitiva (`MakimaMindNet`)**| 🟡 **Sperimentale** | Prior solo suggeriti (`for_forecasting=False`); non alimenta il core. |
 | **Spiegazioni SLM (`Qwen 2.5 0.5B`)** | 🟡 **Sperimentale** | Solo explain/digest; non estrae intenti né probabilità. |
 | **Suite Benchmark & Ablation Study** | 🟡 **Sperimentale** | Benchmark comparativo su campioni sintetici in `experiments/forecasting/`. |
 | **Store iniziale vuoto (no seed sintetici)** | 🟢 **Implementato** | Nessuna evidenza inventata a runtime; `observe` / `sync-git` popolano lo store. |
