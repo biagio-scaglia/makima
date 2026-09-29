@@ -355,33 +355,211 @@ fn generate_laplace_bulletin(state: State<'_, AppState>) -> Result<String, Strin
     Ok(mail.to_string())
 }
 
-/// Comando IPC: Risponde a una query naturale integrando la base di conoscenza e il modello bayesiano.
+fn parse_structured_intent_json(query: &str) -> Result<serde_json::Value, String> {
+    let output = std::process::Command::new("python")
+        .env("PYTHONPATH", "python")
+        .args(["-m", "makima_lab", "parse-intent", query])
+        .output()
+        .map_err(|e| format!("Parser NLP non disponibile: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Parser NLP fallito: {stderr}"));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json_line = stdout
+        .lines()
+        .map(str::trim)
+        .find(|l| l.starts_with('{'))
+        .ok_or_else(|| "Nessun StructuredIntent JSON dal parser.".to_string())?;
+
+    serde_json::from_str(json_line).map_err(|e| format!("JSON non valido: {e}"))
+}
+
+/// Comando IPC: Risponde a una query naturale via StructuredIntent (NLP) + core Rust.
 #[tauri::command]
 fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseDto, String> {
-    let engine = state.engine.lock().map_err(|e| e.to_string())?;
+    let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
 
+    // Preferisci il parser NLP condiviso (stesso contratto della CLI).
+    if let Ok(structured) = parse_structured_intent_json(&query) {
+        let intent = structured
+            .get("intent")
+            .and_then(|v| v.as_str())
+            .unwrap_or("UNKNOWN");
+        let target = structured
+            .get("target")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        let confidence = structured
+            .get("confidence")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let is_valid = structured
+            .get("is_valid_for_core")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let temporal = structured
+            .pointer("/temporal_window/relation")
+            .and_then(|v| v.as_str())
+            .unwrap_or("UNKNOWN");
+        let notes = structured
+            .get("validation_notes")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|x| x.as_str())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            })
+            .unwrap_or_default();
+
+        let thought = format!(
+            "1. [Percezione NLP]: Intent={intent}, confidenza={:.1}%.\n2. [Target]: {}.\n3. [Temporale]: {temporal}.\n4. [Validazione]: {} — {notes}",
+            confidence * 100.0,
+            target.as_deref().unwrap_or("[None]"),
+            if is_valid { "ammesso al core" } else { "rifiutato" }
+        );
+
+        if intent == "STATUS" {
+            let status = engine.status();
+            let text = format!(
+                "**Stato Sistema Makima**:\n• Stato motore: `{}`\n• Totale osservazioni: `{}`\n• Totale esiti verificati: `{}`\n• Previsioni a registro: `{}` (In attesa: `{}`)",
+                status.state,
+                status.total_observations,
+                status.total_outcomes,
+                status.total_forecasts,
+                status.pending_forecasts
+            );
+            return Ok(ChatResponseDto {
+                response: text,
+                thought_trace: Some(thought),
+                confidence: Some(confidence),
+                target: None,
+                timestamp_sec: now,
+            });
+        }
+
+        if intent == "INFORMATION"
+            && (query.to_lowercase().contains("chi sei")
+                || query.to_lowercase().contains("cosa sei"))
+        {
+            return Ok(ChatResponseDto {
+                response: "Sono **Makima**, un motore di previsione bayesiana interpretabile. Registro evidenze empiriche e calcolo probabilità calibrate senza allucinazioni numeriche.".to_string(),
+                thought_trace: Some(thought),
+                confidence: Some(confidence),
+                target: None,
+                timestamp_sec: now,
+            });
+        }
+
+        if is_valid && matches!(intent, "QUERY" | "TEMPORAL_QUERY") {
+            if let Some(ref t) = target {
+                let sum = engine.summarize_target(t);
+                let forecast = engine.predict_target(t);
+                let window_desc = structured
+                    .pointer("/temporal_window/days")
+                    .and_then(|v| v.as_u64())
+                    .map(|d| format!("{d} days"))
+                    .unwrap_or_else(|| temporal.to_string());
+                let _ = engine.register_forecast_in_ledger(
+                    t.as_str(),
+                    now,
+                    forecast.probability,
+                    window_desc,
+                    forecast.evidence_count,
+                    "BayesianConjugate+NLP",
+                );
+
+                // Persisti ledger aggiornato
+                let store = MakimaStore::from_engine(&engine);
+                let _ = store.save(MakimaStore::default_path());
+                if let Ok(db) = MakimaDb::open(&state.db_path) {
+                    let _ = db.sync_from_store(&store);
+                }
+
+                let text = format!(
+                    "Analisi Bayesiana (NLP→Rust) per **{}**:\n\n• Probabilità a posteriori: **{:.1}%** (S: {}, F: {})\n• Varianza epistemica: **{:.4}**\n• Entropia: **{:.2} bit**\n• Evidenze empiriche: **{}**\n• Finestra temporale NLP: `{temporal}`\n\nI numeri provengono dal core Rust; il parser Python ha solo strutturato l'intento.",
+                    t,
+                    sum.probability.value() * 100.0,
+                    sum.success_count,
+                    sum.failure_count,
+                    sum.uncertainty_variance,
+                    sum.entropy_bits,
+                    sum.observations_count
+                );
+
+                return Ok(ChatResponseDto {
+                    response: text,
+                    thought_trace: Some(thought),
+                    confidence: Some(sum.probability.value()),
+                    target: Some(t.clone()),
+                    timestamp_sec: now,
+                });
+            }
+        }
+
+        if intent == "UNKNOWN" || !is_valid {
+            let summaries = engine.target_summaries();
+            let targets_list = if summaries.is_empty() {
+                "Nessun target ancora registrato. Usa *observe* o *sync-git*.".to_string()
+            } else {
+                summaries
+                    .iter()
+                    .map(|s| {
+                        format!(
+                            "- **{}**: {:.1}% ({} oss)",
+                            s.target,
+                            s.probability.value() * 100.0,
+                            s.observations_count
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            let text = format!(
+                "Non posso produrre una previsione calibrata da: *\"{}\"*\n\nMotivazione NLP: {}\n\nTarget monitorati:\n{}",
+                query,
+                if notes.is_empty() {
+                    "intento non ammissibile o fuori dominio".to_string()
+                } else {
+                    notes
+                },
+                targets_list
+            );
+            return Ok(ChatResponseDto {
+                response: text,
+                thought_trace: Some(thought),
+                confidence: Some(confidence),
+                target: None,
+                timestamp_sec: now,
+            });
+        }
+    }
+
+    // Fallback locale se Python NLP non è disponibile
     let q_lower = query.to_lowercase();
     let targets = engine.tracked_targets();
-
-    // Cerca se l'utente menziona un target specifico
     let matched_target = targets
         .into_iter()
         .find(|t| q_lower.contains(&t.to_lowercase()));
 
     let (response, thought_trace, confidence, target_ret) = if let Some(target) = matched_target {
         let sum = engine.summarize_target(&target);
-        let prob_pct = (sum.probability.value() * 100.0).round();
         let thought = format!(
-            "1. [Percezione]: L'utente si concentra sul target '{}'.\n2. [Memoria]: Recupero storico di {} evidenze ({} successi, {} fallimenti).\n3. [Analisi Bayesiana]: Aggiornamento Beta({:.1}, {:.1}) con varianza epistemica {:.5}.\n4. [Decisione]: Formulo una stima probabilistica trasparente e calibrata.",
-            target, sum.observations_count, sum.success_count, sum.failure_count, 1.0 + sum.success_count as f64, 1.0 + sum.failure_count as f64, sum.uncertainty_variance
+            "1. [Fallback]: NLP non disponibile; match lessicale su '{target}'.\n2. [Core Rust]: {} evidenze.",
+            sum.observations_count
         );
         let text = format!(
-            "Analisi Bayesiana per **{}**:\n\n• Probabilità a posteriori $P(p)$: **{:.1}%** (Successi: {}, Fallimenti: {})\n• Incertezza epistemica (Varianza): **{:.4}**\n• Entropia informativa: **{:.2} bit**\n• Frequenza stimata: **{:.2} eventi/giorno**\n\nIl modello applica la regola di successione di Laplace Beta({:.1}, {:.1}) aggiornata con {} evidenze storiche.",
-            target, prob_pct, sum.success_count, sum.failure_count, sum.uncertainty_variance, sum.entropy_bits, sum.estimated_daily_rate, 1.0 + sum.success_count as f64, 1.0 + sum.failure_count as f64, sum.observations_count
+            "Analisi Bayesiana (fallback) per **{}**: probabilità **{:.1}%** su {} evidenze.",
+            target,
+            sum.probability.value() * 100.0,
+            sum.observations_count
         );
         (
             text,
@@ -389,49 +567,12 @@ fn query_chat(query: String, state: State<'_, AppState>) -> Result<ChatResponseD
             Some(sum.probability.value()),
             Some(target),
         )
-    } else if q_lower.contains("chi sei") || q_lower.contains("cosa sei") {
-        let thought = "1. [Percezione]: Domanda esistenziale sull'identità di Makima.\n2. [Memoria]: Richiamo il principio fondazionale di intelligenza computazionale bayesiana.\n3. [Decisione]: Rispondo in prima persona chiarendo lo scopo analitico e probabilistico.".to_string();
-        let text = "Sono **Makima**, un assistente e motore computazionale per il ragionamento bayesiano e la stima probabilistica dell'incertezza. Registro evidenze empiriche (commit, deploy, test) e calcolo distribuzioni di probabilità calibrate per prevedere esiti futuri senza allucinazioni.".to_string();
-        (text, Some(thought), Some(0.99), None)
-    } else if q_lower.contains("stato")
-        || q_lower.contains("status")
-        || q_lower.contains("riepilogo")
-    {
-        let status = engine.status();
-        let thought = format!(
-            "1. [Percezione]: Richiesta di ispezione diagnostica dello stato.\n2. [Analisi]: Motore '{}' con {} osservazioni e {} previsioni.\n3. [Decisione]: Emetto la scorecard di stato del runtime.",
-            status.state, status.total_observations, status.total_forecasts
-        );
-        let text = format!(
-            "**Stato Sistema Makima**:\n• Stato motore: `{}`\n• Totale osservazioni: `{}`\n• Totale esiti verificati: `{}`\n• Previsioni a registro: `{}` (In attesa: `{}`)",
-            status.state, status.total_observations, status.total_outcomes, status.total_forecasts, status.pending_forecasts
-        );
-        (text, Some(thought), Some(1.0), None)
     } else {
-        let summaries = engine.target_summaries();
-        let thought = format!(
-            "1. [Percezione]: Query generica \"{}\".\n2. [Introspezione]: Nessun target univoco menzionato, cerco nella lista dei {} target attivi.\n3. [Decisione]: Presento il quadro d'insieme invitando a una domanda specifica.",
-            query, summaries.len()
-        );
-        let targets_list = if summaries.is_empty() {
-            "Nessun target ancora registrato.".to_string()
-        } else {
-            summaries
-                .iter()
-                .map(|s| {
-                    format!(
-                        "- **{}**: {:.1}% ({} oss)",
-                        s.target,
-                        s.probability.value() * 100.0,
-                        s.observations_count
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        };
+        let thought =
+            "1. [Fallback]: Parser NLP non disponibile e nessun target lessicale riconosciuto."
+                .to_string();
         let text = format!(
-            "Ho analizzato la tua richiesta: *\"{}\"*\n\nAttualmente sto monitorando i seguenti target probabilistici:\n{}\n\nPuoi chiedermi dettagli su un target specifico (es. *\"Probabilità framework_release?\"*) o aggiungere nuove osservazioni.",
-            query, targets_list
+            "Non riesco a interpretare: *\"{query}\"*. Assicurati che Python/`makima_lab` sia installato, oppure menziona un target esplicito."
         );
         (text, Some(thought), None, None)
     };
