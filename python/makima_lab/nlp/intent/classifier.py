@@ -85,11 +85,15 @@ class IntentClassifier:
             "quando rilascerò il prossimo framework",
             "in che data avverrà il deploy",
             "quando ho completato i test",
+            "entro quando finiamo il rilascio",
+            "quando uscirà la prossima versione",
         ],
         Intent.QUERY: [
             "qual è la probabilità di successo del deploy",
             "quanto è probabile che la build passi",
             "prevedi se riusciremo a rilasciare",
+            "ce la faremo a chiudere la feature",
+            "stima la probabilità del framework release",
         ],
         Intent.COMMAND: [
             "sincronizza i commit di git",
