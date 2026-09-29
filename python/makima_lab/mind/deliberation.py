@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import math
+import re
 import time
 import uuid
 from typing import Dict, List, Optional
@@ -149,11 +150,27 @@ class MindDeliberationEngine:
             else:
                 hypotheses.append(f"Il target '{target}' è statisticamente stabile e ben calibrato.")
         elif structured.intent == Intent.UNKNOWN:
-            thought_steps.append(
-                "3b. [Rifiuto Esplicito]: La richiesta non ha un target probabilistico né un comando formale. "
-                "La mia disciplina epistemica mi impone di non simulare certezze inventate."
-            )
-            hypotheses.append("Mantenere trasparenza e chiarire cosa posso osservare o calcolare.")
+            fact_hits = [
+                (m, s)
+                for m, s in retrieved_items
+                if m.category == MemoryCategory.DEVELOPER_FACT and s >= 0.22
+            ]
+            if fact_hits and re.search(
+                r"\b(piace|preferisc|ricord|detto|confidat|lavor[oa]|hobby|gust[oi])\b",
+                user_input.lower(),
+            ):
+                mem_ref = fact_hits[0][0]
+                thought_steps.append(
+                    "3b. [Richiamo autobiografico]: non è un forecast, ma ho un fatto confidato. "
+                    f"Rispondo dalla memoria: \"{mem_ref.content[:120]}\"."
+                )
+                hypotheses.append("Rispondere citando i fatti confidati, senza inventare probabilità.")
+            else:
+                thought_steps.append(
+                    "3b. [Rifiuto Esplicito]: La richiesta non ha un target probabilistico né un comando formale, "
+                    "e non trovo un ricordo autobiografico utile. Non invento certezze."
+                )
+                hypotheses.append("Mantenere trasparenza e chiarire cosa posso osservare o calcolare.")
         else:
             thought_steps.append(
                 f"3b. [Stato Generale]: mood={self_state.mood.value}, "
@@ -217,11 +234,33 @@ class MindDeliberationEngine:
         retrieved_items: list,
     ) -> str:
         """Sintetizza la risposta verbale di Makima incarnando la sua personalità cosciente."""
+        # Autobiografia: rispondi dai DEVELOPER_FACT se la domanda li richiama.
+        if retrieved_items:
+            best_mem, score = retrieved_items[0]
+            autobiographical = structured.intent == Intent.INFORMATION or bool(
+                re.search(
+                    r"\b(piace|preferisc|ricord|detto|confidat|lavor[oa]|hobby|gust[oi])\b",
+                    structured.raw_query.lower(),
+                )
+            )
+            if (
+                autobiographical
+                and best_mem.category == MemoryCategory.DEVELOPER_FACT
+                and score >= 0.22
+            ):
+                return (
+                    f"Sì, lo ricordo: mi hai detto «{best_mem.content}». "
+                    f"(dal diario episodico, confidenza di richiamo ~{score:.0%}). "
+                    "Se vuoi aggiornare questo fatto usa `tell ...`; "
+                    "per le probabilità usa `makima query` / `predict`."
+                )
+
         if structured.intent == Intent.UNKNOWN:
             return (
-                "Sto riflettendo su quello che mi hai detto, ma non trovo un target probabilistico né un comando verificabile nel nostro contesto. "
-                "Preferisco dirti con onestà che non so come interpretare questa richiesta piuttosto che inventare una risposta finta. "
-                "Puoi chiedermi una previsione su un deploy, sulla build, sullo stato dei commit, o registrare una nuova evidenza."
+                "Sto riflettendo su quello che mi hai detto, ma non trovo un target probabilistico, "
+                "né un ricordo abbastanza vicino, né un comando verificabile. "
+                "Puoi: confidarmi un fatto con `tell`, chiedermi una previsione, "
+                "o registrare evidenze con `observe`."
             )
 
         if structured.intent in (Intent.QUERY, Intent.TEMPORAL_QUERY) and target:

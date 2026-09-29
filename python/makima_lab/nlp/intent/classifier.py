@@ -58,6 +58,11 @@ class IntentClassifier:
             r"\bchi\s+sei\b",
             r"\bcosa\s+sei\b",
             r"\bdescrivi\b",
+            r"\bdi\s+cosa\s+mi\s+piace\b",
+            r"\bcosa\s+mi\s+piace\b",
+            r"\bcose?\s+ti\s+ho\s+(?:detto|confidato)\b",
+            r"\bricordi\b",
+            r"\bcosa\s+(?:sai|ricordi)\s+(?:di|su)\b",
         ],
         Intent.OBSERVATION: [
             r"\boggi\s+ho\s+(?:fatto|completato|rilasciato|eseguito|fallito)\b",
@@ -105,6 +110,9 @@ class IntentClassifier:
             "come funziona l aggiornamento bayesiano",
             "spiega la distribuzione beta",
             "chi sei makima",
+            "di cosa mi piace lavorare",
+            "cosa ti ho detto sui miei gusti",
+            "ricordi cosa mi piace",
         ],
         Intent.OBSERVATION: [
             "oggi ho completato il deploy con successo",

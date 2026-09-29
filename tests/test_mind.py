@@ -70,7 +70,17 @@ class TestMakimaMind(unittest.TestCase):
         pulse = self.deliberation.deliberate("Raccontami una barzelletta simpatica")
         
         self.assertIn("Rifiuto Esplicito", pulse.inner_monologue)
-        self.assertIn("non so come interpretare", pulse.conscious_utterance.lower())
+        self.assertTrue(
+            "non trovo" in pulse.conscious_utterance.lower()
+            or "tell" in pulse.conscious_utterance.lower()
+        )
+
+    def test_recall_developer_fact_in_utterance(self):
+        """Se ho un fatto in memoria, chat autobiografica non deve rifiutare UNKNOWN."""
+        self.memory.record_developer_fact("Mi piace molto lavorare con il front-end")
+        pulse = self.deliberation.deliberate("Di cosa mi piace lavorare?")
+        self.assertIn("front-end", pulse.conscious_utterance.lower())
+        self.assertIn("ricordo", pulse.conscious_utterance.lower())
 
     def test_autonomous_spontaneous_thought_pulse(self):
         """Verifica che il battito autonomo della mente generi un pensiero spontaneo."""

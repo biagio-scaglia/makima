@@ -173,6 +173,15 @@ class BrainLoop:
         # Deliberazione narrativa (Mind) — stessi numeri Laplace onesti
         pulse = self.deliberation.deliberate(stimulus)
 
+        # Se NLP era UNKNOWN ma la memoria ha risposto, non restare su ASK_CLARIFY
+        if (
+            action == BrainAction.ASK_CLARIFY
+            and pulse.retrieved_memories
+            and "Rifiuto Esplicito" not in pulse.inner_monologue
+        ):
+            action = BrainAction.SPEAK
+            action_conf = max(action_conf, 0.65)
+
         # Arricchisci monologo con traccia neurale
         neural_trace = (
             f"0. [Cervello neurale]: intent_soft={neural_intent}, "
