@@ -22,9 +22,8 @@ fn load_engine_from_store() -> MakimaEngine {
     let db_path = MakimaDb::default_path();
     let store_path = MakimaStore::default_path();
 
-    // 1. Inizializza o carica lo store JSON iniziale se necessario
-    let store =
-        MakimaStore::load_or_init(&store_path).unwrap_or_else(|_| MakimaStore::sample_store());
+    // 1. Carica lo store JSON (vuoto al primo avvio: nessuna evidenza sintetica)
+    let store = MakimaStore::load_or_init(&store_path).unwrap_or_else(|_| MakimaStore::default());
 
     // 2. Apri e sincronizza con SQLite WAL
     match MakimaDb::open(&db_path) {

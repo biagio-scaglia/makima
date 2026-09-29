@@ -39,7 +39,10 @@ impl MakimaStore {
         PathBuf::from(".makima").join("store.json")
     }
 
-    /// Carica lo store da file o inizializza lo storage con i dati di riferimento se non esiste.
+    /// Carica lo store da file o inizializza uno store vuoto se non esiste.
+    ///
+    /// Non inserisce evidenze sintetiche: le osservazioni devono essere empiriche
+    /// (`observe`, telemetria Git, ecc.).
     pub fn load_or_init(path: impl AsRef<Path>) -> io::Result<Self> {
         let path = path.as_ref();
         if path.exists() {
@@ -49,9 +52,9 @@ impl MakimaStore {
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
             Ok(store)
         } else {
-            let sample = Self::sample_store();
-            sample.save(path)?;
-            Ok(sample)
+            let empty = Self::default();
+            empty.save(path)?;
+            Ok(empty)
         }
     }
 
@@ -67,70 +70,45 @@ impl MakimaStore {
         Ok(())
     }
 
-    /// Crea un set iniziale di evidenze storiche per popolare il dataset di avvio.
+    /// Crea uno store di esempio **solo per test unitari** (non usato a runtime).
+    ///
+    /// Preferire sempre store vuoti in produzione e popolare con evidenze reali.
     #[must_use]
     pub fn sample_store() -> Self {
-        let samples = [
-            ("framework_release", 1.0, 1_700_000_000),
-            ("framework_release", 1.0, 1_700_086_400),
-            ("framework_release", 0.0, 1_700_172_800),
-            ("framework_release", 1.0, 1_700_259_200),
-            ("framework_release", 1.0, 1_700_345_600),
-            ("framework_release", 1.0, 1_700_432_000),
-            ("framework_release", 0.0, 1_700_518_400),
-            ("framework_release", 1.0, 1_700_604_800),
-            ("daily_build", 1.0, 1_700_000_000),
-            ("daily_build", 1.0, 1_700_086_400),
-            ("daily_build", 1.0, 1_700_172_800),
-            ("api_gateway", 1.0, 1_700_000_000),
-            ("api_gateway", 1.0, 1_700_086_400),
-            ("api_gateway", 0.0, 1_700_172_800),
-            ("api_gateway", 1.0, 1_700_259_200),
+        let observations = vec![
+            Observation::new(
+                ObservationId(1),
+                "framework_release",
+                1_700_000_000,
+                1.0,
+            ),
+            Observation::new(
+                ObservationId(2),
+                "framework_release",
+                1_700_086_400,
+                0.0,
+            ),
+            Observation::new(ObservationId(3), "daily_build", 1_700_000_000, 1.0),
         ];
 
-        let observations = samples
-            .iter()
-            .enumerate()
-            .map(|(idx, (target, val, ts))| {
-                Observation::new(ObservationId((idx + 1) as u64), *target, *ts, *val)
-            })
-            .collect();
+        let outcomes = vec![Outcome::new("framework_release", true, 1_700_650_000)];
 
-        let outcomes = vec![
-            Outcome::new("framework_release", true, 1_700_650_000),
-            Outcome::new("daily_build", true, 1_700_200_000),
-        ];
-
-        let mut forecasts = Vec::new();
         let mut f1 = ForecastRecord::new_pending(
             ForecastId(1),
             "framework_release",
             1_700_600_000,
-            Probability::from_clamped(0.70),
+            Probability::from_clamped(0.50),
             "7 days",
-            8,
+            2,
             "BayesianConjugate",
         );
         f1.resolve(true, 1_700_650_000);
-        forecasts.push(f1);
-
-        let mut f2 = ForecastRecord::new_pending(
-            ForecastId(2),
-            "daily_build",
-            1_700_150_000,
-            Probability::from_clamped(0.80),
-            "24 hours",
-            3,
-            "BayesianConjugate",
-        );
-        f2.resolve(true, 1_700_200_000);
-        forecasts.push(f2);
 
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
             observations,
             outcomes,
-            forecasts,
+            forecasts: vec![f1],
         }
     }
 

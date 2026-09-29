@@ -22,63 +22,19 @@ from makima_lab.nlp.parser import SemanticQueryParser
 from makima_lab.storage import compute_knowledge_base_from_store, load_store
 
 
-# Dataset storico di riferimento predefinito per target base
-DEFAULT_KNOWLEDGE_BASE = {
-    "git:feature_ratio": {
-        "successes": 15,
-        "failures": 3,
-        "historical_days": 14,
-        "rate_per_day": 15.0 / 14.0,
-    },
-    "git:test_discipline": {
-        "successes": 12,
-        "failures": 2,
-        "historical_days": 14,
-        "rate_per_day": 12.0 / 14.0,
-    },
-    "framework_release": {
-        "successes": 6,
-        "failures": 2,
-        "historical_days": 60,
-        "rate_per_day": 6.0 / 60.0,
-    },
-    "daily_build": {
-        "successes": 28,
-        "failures": 2,
-        "historical_days": 30,
-        "rate_per_day": 28.0 / 30.0,
-    },
-    "deploy": {
-        "successes": 15,
-        "failures": 3,
-        "historical_days": 30,
-        "rate_per_day": 15.0 / 30.0,
-    },
-    "api_gateway": {
-        "successes": 4,
-        "failures": 1,
-        "historical_days": 45,
-        "rate_per_day": 4.0 / 45.0,
-    },
-    "git:commit_frequency": {
-        "successes": 24,
-        "failures": 1,
-        "historical_days": 14,
-        "rate_per_day": 24.0 / 14.0,
-    },
-    "git:bugfix_ratio": {
-        "successes": 9,
-        "failures": 2,
-        "historical_days": 14,
-        "rate_per_day": 9.0 / 14.0,
-    },
-    "git:chore_ratio": {
-        "successes": 8,
-        "failures": 1,
-        "historical_days": 14,
-        "rate_per_day": 8.0 / 14.0,
-    },
-}
+# Catalogo target noti solo per risoluzione semantica (NESSUNA evidenza inventata).
+# Le conteggi empirici devono provenire esclusivamente dallo store persistente.
+KNOWN_TARGET_CATALOG: tuple[str, ...] = (
+    "git:feature_ratio",
+    "git:test_discipline",
+    "git:commit_frequency",
+    "git:bugfix_ratio",
+    "git:chore_ratio",
+    "framework_release",
+    "daily_build",
+    "deploy",
+    "api_gateway",
+)
 
 
 @dataclass(frozen=True)
@@ -140,16 +96,20 @@ class SemanticForecastPipeline:
         if knowledge_base is not None:
             self.knowledge_base = knowledge_base
         else:
-            # Carica dallo storage persistente (.makima/makima.db SQLite o store.json)
+            # Solo evidenze empiriche dallo storage persistente (nessun seed sintetico).
             store_data = load_store()
-            loaded_kb = compute_knowledge_base_from_store(store_data)
-            merged_kb = dict(DEFAULT_KNOWLEDGE_BASE)
-            merged_kb.update(loaded_kb)
-            self.knowledge_base = merged_kb
+            self.knowledge_base = compute_knowledge_base_from_store(store_data)
+
+    def _available_targets(self) -> list[str]:
+        """Target candidati: quelli osservati nello store, altrimenti il catalogo lessicale."""
+        observed = list(self.knowledge_base.keys())
+        if observed:
+            return observed
+        return list(KNOWN_TARGET_CATALOG)
 
     def execute_structured(self, text: str) -> tuple[StructuredIntent, SemanticForecastResult]:
         """Elabora la query producendo lo StructuredIntent validato e il calcolo probabilistico."""
-        available_targets = list(self.knowledge_base.keys())
+        available_targets = self._available_targets()
         struct = self.parser.parse_structured(text, available_targets=available_targets)
         legacy_query = self.parser.parse(text, available_targets=available_targets)
 
@@ -199,10 +159,18 @@ class SemanticForecastPipeline:
             temporal_prob = posterior.mean
 
         source_desc = "telemetria Git reale" if target.startswith("git:") else "evidenze storiche"
-        explanation = (
-            f"Previsione basata su {source_desc} (target '{target}'): {evidence['successes']} successi, "
-            f"{evidence['failures']} insuccessi registrati, rate stimato ~{rate:.2f} eventi/giorno."
-        )
+        total_ev = evidence["successes"] + evidence["failures"]
+        if total_ev == 0:
+            explanation = (
+                f"Target '{target}' riconosciuto ma senza evidenze empiriche nello store: "
+                f"si usa un prior uniforme Beta(1,1). Registra osservazioni con "
+                f"'makima observe {target} <0|1>' oppure sincronizza Git."
+            )
+        else:
+            explanation = (
+                f"Previsione basata su {source_desc} (target '{target}'): {evidence['successes']} successi, "
+                f"{evidence['failures']} insuccessi registrati, rate stimato ~{rate:.2f} eventi/giorno."
+            )
 
         res = SemanticForecastResult(
             query=legacy_query,
@@ -216,8 +184,7 @@ class SemanticForecastPipeline:
 
     def process_intent(self, text: str) -> StructuredIntent:
         """Elabora la query testuale e restituisce direttamente lo StructuredIntent validato."""
-        available_targets = list(self.knowledge_base.keys())
-        return self.parser.parse_structured(text, available_targets=available_targets)
+        return self.parser.parse_structured(text, available_targets=self._available_targets())
 
     def execute(self, text: str) -> SemanticForecastResult:
         """Esegue l'elaborazione restituendo il SemanticForecastResult."""

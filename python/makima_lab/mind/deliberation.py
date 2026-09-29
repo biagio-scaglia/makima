@@ -119,16 +119,19 @@ class MindDeliberationEngine:
         # Step 3: Riflessione Matematica & Incertezza
         if target:
             kb = compute_knowledge_base_from_store(load_store())
-            stats = kb.get(target, {"successes": 1, "failures": 1, "rate_per_day": 0.1})
+            stats = kb.get(target, {"successes": 0, "failures": 0, "rate_per_day": 0.0})
             s, f = stats["successes"], stats["failures"]
-            mean_p = s / (s + f)
-            var_p = (s * f) / (((s + f) ** 2) * (s + f + 1))
+            # Prior uniforme Beta(1,1) se non ci sono evidenze (nessuna invenzione di conteggi).
+            mean_p = (s + 1) / (s + f + 2)
+            var_p = ((s + 1) * (f + 1)) / (((s + f + 2) ** 2) * (s + f + 3))
             thought_steps.append(
                 f"3. [Analisi Bayesiana]: Il focus è sul target '{target}'. "
-                f"Ho registrato {s} successi e {f} fallimenti. "
+                f"Ho registrato {s} successi e {f} fallimenti empirici. "
                 f"Valore atteso a posteriori E[P] = {mean_p * 100:.1f}%, incertezza epistemica (Var) = {var_p:.5f}."
             )
-            if var_p > 0.03:
+            if s + f == 0:
+                hypotheses.append(f"Il target '{target}' non ha ancora evidenze; comunico il prior uniforme.")
+            elif var_p > 0.03:
                 hypotheses.append(f"Il target '{target}' possiede un'evidenza ancora limitata; devo comunicare cautela.")
             else:
                 hypotheses.append(f"Il target '{target}' è statisticamente stabile e ben calibrato.")
@@ -210,16 +213,27 @@ class MindDeliberationEngine:
 
         if structured.intent in (Intent.QUERY, Intent.TEMPORAL_QUERY) and target:
             kb = compute_knowledge_base_from_store(load_store())
-            evidence = kb.get(target, {"successes": 1, "failures": 1, "rate_per_day": 0.1})
+            evidence = kb.get(target, {"successes": 0, "failures": 0, "rate_per_day": 0.0})
             s, f = evidence["successes"], evidence["failures"]
-            prob = (s / (s + f)) * 100.0
+            # Laplace: Beta(1+s, 1+f) — nessun conteggio inventato
+            prob = ((s + 1) / (s + f + 2)) * 100.0
             
             time_phrase = ""
             if structured.temporal_window.days:
                 days = structured.temporal_window.days
-                rate = evidence.get("rate_per_day", 0.1)
-                t_prob = (1.0 - math.exp(-rate * days)) * 100.0
-                time_phrase = f" Considerando l'orizzonte di {days} giorni e il ritmo stimato dei commit, la probabilità temporale sale al {t_prob:.1f}%."
+                rate = evidence.get("rate_per_day", 0.0)
+                if rate > 0:
+                    t_prob = (1.0 - math.exp(-rate * days)) * 100.0
+                    time_phrase = f" Considerando l'orizzonte di {days} giorni e il ritmo stimato, la probabilità temporale è {t_prob:.1f}%."
+                else:
+                    time_phrase = f" Orizzonte richiesto: {days} giorni, ma manca ancora un tasso empirico affidabile."
+
+            if s + f == 0:
+                return (
+                    f"Riconosco il target '{target}', ma non ho ancora evidenze empiriche nello store. "
+                    f"Con un prior uniforme la stima di riferimento è {prob:.1f}%. "
+                    f"Registra osservazioni reali oppure sincronizza Git prima di una previsione calibrata."
+                )
 
             return (
                 f"Ho esaminato lo storico di '{target}'. Su {s + f} evidenze registrate ({s} successi, {f} fallimenti), "
