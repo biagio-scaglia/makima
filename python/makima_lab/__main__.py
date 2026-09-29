@@ -112,18 +112,24 @@ def handle_digest() -> None:
 
 
 def handle_chat(query: str, show_thought: bool = True) -> None:
-    """Conversazione cosciente con Makima con deliberazione e monologo interiore."""
-    from makima_lab.mind import MindDeliberationEngine
-    engine = MindDeliberationEngine()
-    pulse = engine.deliberate(query)
+    """Conversazione con cervello neurale (BrainLoop)."""
+    from makima_lab.brain import get_brain
+
+    result = get_brain().tick(query)
+    pulse = result.pulse
 
     if show_thought:
         print("\n=======================================================")
-        print("         🧠 MONOLOGO INTERIORE & FLUSSO DI COSCIENZA   ")
+        print("         CERVELLO NEURALE — MONOLOGO INTERIORE         ")
         print("=======================================================")
         print(pulse.inner_monologue)
         print("-------------------------------------------------------")
-        print(f"Stato: {pulse.self_state.mood.value} | Incertezza: {pulse.self_state.epistemic_uncertainty:.4f} | BSS: {pulse.self_state.brier_skill_score:+.2f}")
+        print(result.format_user_guide())
+        print(
+            f"Stato: {pulse.self_state.mood.value} | "
+            f"Incertezza: {pulse.self_state.epistemic_uncertainty:.4f} | "
+            f"BSS: {pulse.self_state.brier_skill_score:+.2f}"
+        )
         if pulse.retrieved_memories:
             print(f"Memorie Richiamate: {'; '.join(pulse.retrieved_memories[:2])}")
         print("=======================================================")
@@ -132,44 +138,51 @@ def handle_chat(query: str, show_thought: bool = True) -> None:
 
 
 def handle_think(query: str) -> None:
-    """Ispezione del solo flusso di pensiero interiore di Makima."""
-    from makima_lab.mind import MindDeliberationEngine
-    engine = MindDeliberationEngine()
-    pulse = engine.deliberate(query)
+    """Ispezione del tick completo del cervello neurale."""
+    from makima_lab.brain import get_brain
 
-    print("\n[ 🧠 Deliberazione Cognitiva di Makima ]")
+    result = get_brain().tick(query)
+    pulse = result.pulse
+
+    print("\n[ Cervello neurale Makima — BrainLoop.tick ]")
     print("=======================================================")
     print(pulse.inner_monologue)
     print("=======================================================")
+    print(result.format_user_guide())
     print(f"Stato Epistemico: {pulse.self_state.summary()}")
+    print(f"Workspace L2: {result.workspace_norm:.4f}")
     print(f"Ipotesi: {', '.join(pulse.hypotheses) if pulse.hypotheses else '[Nessuna]'}")
     print("-------------------------------------------------------")
-    print(f"Comunicazione risultante: \"{pulse.conscious_utterance}\"\n")
+    print(f"Comunicazione: \"{pulse.conscious_utterance}\"\n")
 
 
 def handle_pulse() -> None:
-    """Genera un impulso di pensiero spontaneo autonomo di Makima."""
-    from makima_lab.mind import AutonomousMindPulse
-    pulse_engine = AutonomousMindPulse()
-    pulse = pulse_engine.generate_spontaneous_thought(trigger_hint="Impulso manuale da console")
+    """Impulso spontaneo via BrainLoop (stimulus idle)."""
+    from makima_lab.brain import get_brain
 
-    print("\n[ 🌌 Impulso di Pensiero Spontaneo di Makima ]")
+    result = get_brain().tick("Impulso autonomo: cosa merita attenzione nello store?", learn=False)
+    pulse = result.pulse
+
+    print("\n[ Impulso di pensiero — cervello neurale ]")
     print("=======================================================")
     print(pulse.inner_monologue)
     print("=======================================================")
+    print(result.format_user_guide())
     print(f"\nMakima: {pulse.conscious_utterance}\n")
 
 
 def handle_chat_interactive() -> None:
-    """Sessione di conversazione cognitiva continua con monologo interiore."""
+    """Sessione continua sul BrainLoop neurale."""
     print("\n=======================================================")
-    print("      MAKIMA LIVING CONSCIOUSNESS & COGNITIVE MIND     ")
+    print("      MAKIMA NEURAL BRAIN (BrainLoop)                  ")
     print("=======================================================")
-    print("Makima è viva, processa, riflette e ricorda le tue parole.")
-    print("Digita il tuo messaggio (o 'esci' per tornare al menu)")
+    print("Cervello operativo: percezione → memoria → azione.")
+    print("I numeri di forecast restano in `makima query` (Rust).")
+    print("Digita un messaggio (o 'esci')")
     print("=======================================================\n")
-    from makima_lab.mind import MindDeliberationEngine
-    engine = MindDeliberationEngine()
+    from makima_lab.brain import get_brain
+
+    brain = get_brain()
 
     while True:
         try:
@@ -177,13 +190,14 @@ def handle_chat_interactive() -> None:
             if not user_msg:
                 continue
             if user_msg.lower() in ("exit", "quit", "esci", "q", ":q"):
-                print("\nChiusura sessione cosciente.\n")
+                print("\nChiusura sessione cervello.\n")
                 break
-            pulse = engine.deliberate(user_msg)
+            result = brain.tick(user_msg)
             print("\n" + "-" * 55)
-            print(f"🧠 [Pensiero]:\n{pulse.inner_monologue}")
+            print(f"[Pensiero]:\n{result.pulse.inner_monologue}")
             print("-" * 55)
-            print(f"\nMakima: {pulse.conscious_utterance}\n")
+            print(result.format_user_guide())
+            print(f"\nMakima: {result.pulse.conscious_utterance}\n")
         except (KeyboardInterrupt, EOFError):
             print("\n")
             break

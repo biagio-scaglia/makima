@@ -53,6 +53,8 @@ class TestMakimaNeuralMind(unittest.TestCase):
 
         self.assertEqual(outputs["intent_logits"].shape, (batch_size, 5))
         self.assertEqual(outputs["target_embedding"].shape, (batch_size, 32))
+        self.assertIn("action_logits", outputs)
+        self.assertIn("workspace", outputs)
         self.assertEqual(new_memory.shape, (batch_size, 64))
 
     def test_engine_perception(self):
@@ -68,7 +70,7 @@ class TestMakimaNeuralMind(unittest.TestCase):
 
         # Test report formatting
         report = res.format_report()
-        self.assertIn("Makima Neural Perception", report)
+        self.assertIn("Makima Neural Brain", report)
         self.assertIn("FORECASTING_PATH=False", report)
         self.assertFalse(res.for_forecasting)
         self.assertTrue(res.priors_are_suggestions)

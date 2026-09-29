@@ -6,7 +6,7 @@ e NON calcola probabilità per il core Rust.
 """
 
 from .vocab import MakimaTokenizer
-from .models import MakimaMindNet, INTENTS, INTENT2IDX, IDX2INTENT
+from .models import MakimaMindNet, INTENTS, INTENT2IDX, IDX2INTENT, ACTIONS, ACTION2IDX, IDX2ACTION
 from .engine import MakimaNeuralEngine, NeuralInferenceResult, get_neural_engine
 
 EXPERIMENTAL_LAB = True
@@ -23,4 +23,7 @@ __all__ = [
     "INTENTS",
     "INTENT2IDX",
     "IDX2INTENT",
+    "ACTIONS",
+    "ACTION2IDX",
+    "IDX2ACTION",
 ]

@@ -60,3 +60,11 @@ class StructuredIntent:
         if self.validation_notes:
             lines.append(f"Note Validazione: {'; '.join(self.validation_notes)}")
         return "\n".join(lines)
+
+    def admits_forecast(self) -> bool:
+        """True se il core Rust può eseguire un forecast su questo intento."""
+        return (
+            self.is_valid_for_core
+            and self.target is not None
+            and self.intent in (Intent.QUERY, Intent.TEMPORAL_QUERY)
+        )

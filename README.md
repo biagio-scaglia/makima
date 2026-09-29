@@ -285,7 +285,7 @@ Per garantire la massima trasparenza tecnica verso sviluppatori e contributori, 
 | **Telemetria Git Reale & Daemon** | 🟢 **Implementato** | Parser commit bilingue (italiano/inglese) e daemon in background. |
 | **Pipeline NLP Multi-Stadio → StructuredIntent** | 🟢 **Implementato** | Parser euristico + validazione; CLI/GUI consumano JSON e calcolano il forecast in Rust. |
 | **Vettorizzazione Semantica Embeddings** | 🟡 **Opzionale** | MiniLM se installato (`pip install -e ".[nlp]"`); altrimenti fallback hash blake2b riproducibile. |
-| **Mente Neurale Cognitiva (`MakimaMindNet`)**| 🟡 **Sperimentale** | Prior solo suggeriti (`for_forecasting=False`); non alimenta il core. |
+| **Mente Neurale Cognitiva (`MakimaMindNet`)**| 🟡 **Cervello operativo** | Action head + workspace + memoria; guide: [docs/neural_brain_usage.md](docs/neural_brain_usage.md). |
 | **Spiegazioni SLM (`Qwen 2.5 0.5B`)** | 🟡 **Sperimentale** | Solo explain/digest; non estrae intenti né probabilità. |
 | **Suite Benchmark & Ablation Study** | 🟡 **Sperimentale** | Benchmark comparativo su campioni sintetici in `experiments/forecasting/`. |
 | **Store iniziale vuoto (no seed sintetici)** | 🟢 **Implementato** | Nessuna evidenza inventata a runtime; `observe` / `sync-git` popolano lo store. |

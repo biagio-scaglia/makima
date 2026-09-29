@@ -41,15 +41,20 @@ class MindDeliberationEngine:
         store = load_store()
         kb = compute_knowledge_base_from_store(store)
         
-        # Calcolo incertezza epistemica media (varianza delle distribuzioni Beta)
+        # Calcolo incertezza epistemica media (varianza Laplace Beta(1+s,1+f))
         variances = []
+        high_uncertainty_targets: list[str] = []
         for target, stats in kb.items():
-            s = stats.get("successes", 1)
-            f = stats.get("failures", 1)
-            var = (s * f) / (((s + f) ** 2) * (s + f + 1))
+            s = int(stats.get("successes", 0))
+            f = int(stats.get("failures", 0))
+            # Prior uniforme onesto: nessun default inventato (1,1) come se fossero evidenze
+            alpha, beta = s + 1, f + 1
+            var = (alpha * beta) / (((alpha + beta) ** 2) * (alpha + beta + 1))
             variances.append(var)
+            if var > 0.05:
+                high_uncertainty_targets.append(target)
 
-        avg_uncertainty = sum(variances) / len(variances) if variances else 0.0833
+        avg_uncertainty = sum(variances) / len(variances) if variances else (1 * 1) / ((2 ** 2) * 3)  # Beta(1,1)
         
         # Brier Skill Score derivato dallo store o default bilanciato
         brier_score = store.get("metrics", {}).get("brier_score", 0.14)
