@@ -39,15 +39,34 @@ def print_banner():
     print("===================================================\n")
 
 
+def handle_parse_intent(text: str) -> None:
+    """Emette solo StructuredIntent JSON (contratto verso il core Rust)."""
+    pipeline = SemanticForecastPipeline()
+    structured = pipeline.process_intent(text)
+    # JSON compatto su stdout (nessun testo decorativo) per il parsing dalla CLI Rust.
+    print(structured.to_json_compact())
+
+
 def handle_explain(target_name: str) -> None:
     """Genera una spiegazione analitica per un target probabilistico tramite Qwen 2.5."""
     from makima_lab.llm import get_llm_engine
+    from makima_lab.storage import load_store, compute_knowledge_base_from_store
+
     engine = get_llm_engine()
-    # Recupera dati di default o da storage per il target
-    alpha = 16.0 if target_name in ("deploy", "git:feature_ratio") else 3.0
-    beta = 4.0 if target_name in ("deploy", "git:feature_ratio") else 2.0
+    kb = compute_knowledge_base_from_store(load_store())
+    evidence = kb.get(target_name)
+    if evidence is None:
+        alpha, beta = 1.0, 1.0
+        poisson_rate = 0.0
+        evidence_count = 0
+    else:
+        alpha = 1.0 + float(evidence["successes"])
+        beta = 1.0 + float(evidence["failures"])
+        poisson_rate = float(evidence.get("rate_per_day", 0.0))
+        evidence_count = int(evidence["successes"] + evidence["failures"])
+
     prob = alpha / (alpha + beta)
-    evidence = int(alpha + beta - 2)
+    variance = (alpha * beta) / (((alpha + beta) ** 2) * (alpha + beta + 1))
 
     print(f"\n[ Makima Cognitive Reasoning: {target_name} ]")
     explanation = engine.explain_target(
@@ -55,9 +74,9 @@ def handle_explain(target_name: str) -> None:
         probability=prob,
         alpha=alpha,
         beta=beta,
-        evidence_count=evidence,
-        poisson_rate=0.75,
-        variance=(alpha * beta) / (((alpha + beta) ** 2) * (alpha + beta + 1)),
+        evidence_count=evidence_count,
+        poisson_rate=poisson_rate,
+        variance=variance,
     )
     print("---------------------------------------------------")
     print(explanation)
@@ -365,11 +384,21 @@ def main():
             from makima_lab.git_observer import run_daemon_loop
             interval = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 15
             run_daemon_loop(".", poll_interval=interval)
+        elif subcmd in ("parse-intent", "parse", "intent-json") and len(sys.argv) > 2:
+            text = " ".join(sys.argv[2:])
+            handle_parse_intent(text)
         elif subcmd in ("query", "nlp") and len(sys.argv) > 2:
             text = " ".join(sys.argv[2:])
+            # Lab: mostra StructuredIntent; il forecast numerico runtime è responsabilità di Rust.
             pipeline = SemanticForecastPipeline()
-            res = pipeline.execute(text)
+            struct, res = pipeline.execute_structured(text)
+            print("\n[ StructuredIntent → contratto Rust ]")
+            print(struct.summary())
             print("\n" + res.format_report() + "\n")
+            print(
+                "Nota: in produzione usare `makima query ...` (CLI Rust) che esegue "
+                "il forecast nel core dopo il parse Python.\n"
+            )
         elif subcmd in ("benchmark", "bench", "eval-all"):
             from experiments.forecasting.run_benchmarks import main as run_benchmark_main
             run_benchmark_main()

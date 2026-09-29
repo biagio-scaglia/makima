@@ -223,50 +223,7 @@ fn handle_predict(target: &str) {
         "BayesianConjugate",
     );
     save_engine_to_store(&engine);
-
-    println!("\n============================================================");
-    println!("               MAKIMA PROBABILISTIC FORECAST                ");
-    println!("============================================================");
-    println!("Forecast ID:          {id}");
-    println!("Target:               {}", forecast.target);
-    println!(
-        "Probabilità Stimata:  {:.2}%  (E[P] = {:.4})",
-        forecast.probability.value() * 100.0,
-        forecast.probability.value()
-    );
-    println!(
-        "Densità di Stima:     {} (0.0 -> 1.0)",
-        render_ascii_density_bar(forecast.probability.value(), 36)
-    );
-    println!("Incertezza (Var):     {:.6}", forecast.uncertainty_variance);
-    println!("Entropia Informativa: {:.4} bit", forecast.entropy_bits);
-    println!(
-        "Prior Bayesiano:      Beta(alpha={:.2}, beta={:.2})",
-        forecast.prior.alpha(),
-        forecast.prior.beta()
-    );
-    println!(
-        "Posterior Aggiornato: Beta(alpha={:.2}, beta={:.2})",
-        forecast.posterior.alpha(),
-        forecast.posterior.beta()
-    );
-    println!(
-        "Evidenze Rilevate:    {} osservazioni storiche",
-        forecast.evidence_count
-    );
-    println!("Stato nel Ledger:     PENDING (in attesa di esito reale)");
-
-    if forecast.evidence_ids.is_empty() {
-        println!("Tracciamento Prove:   [Nessuna evidenza - Prior non-informativo]");
-    } else {
-        let ids_str: Vec<String> = forecast
-            .evidence_ids
-            .iter()
-            .map(|id| id.0.to_string())
-            .collect();
-        println!("Tracciamento Prove:   [ID: {}]", ids_str.join(", "));
-    }
-    println!("============================================================\n");
+    print_forecast_report(&forecast, id, "");
 }
 
 fn handle_observe(target: &str, value_str: &str) {
@@ -424,22 +381,164 @@ fn handle_bernoulli(p_str: &str) {
     }
 }
 
-fn handle_query(query_text: &str) -> ExitCode {
+fn run_python_lab(args: &[&str]) -> Result<std::process::Output, std::io::Error> {
     let mut cmd = std::process::Command::new("python");
     cmd.env("PYTHONPATH", "python");
-    cmd.args([
-        "-c",
-        "import sys; from makima_lab.nlp import SemanticForecastPipeline; p = SemanticForecastPipeline(); print('\\n' + p.execute(sys.argv[1]).format_report())",
-        query_text,
-    ]);
-    match cmd.status() {
-        Ok(status) if status.success() => ExitCode::SUCCESS,
-        Ok(_) => ExitCode::FAILURE,
-        Err(err) => {
-            eprintln!("Impossibile eseguire il modulo Python NLP: {err}");
-            ExitCode::FAILURE
-        }
+    cmd.args(args);
+    cmd.output()
+}
+
+fn parse_structured_intent(query_text: &str) -> Result<serde_json::Value, String> {
+    let output = run_python_lab(&["-m", "makima_lab", "parse-intent", query_text])
+        .map_err(|e| format!("Impossibile eseguire il parser NLP Python: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Parser NLP fallito: {stderr}"));
     }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json_line = stdout
+        .lines()
+        .map(str::trim)
+        .find(|l| l.starts_with('{'))
+        .ok_or_else(|| "Nessun JSON StructuredIntent restituito dal parser.".to_string())?;
+
+    serde_json::from_str(json_line).map_err(|e| format!("JSON StructuredIntent non valido: {e}"))
+}
+
+fn print_forecast_report(forecast: &Forecast, forecast_id: makima_core::ForecastId, nlp_notes: &str) {
+    println!("\n============================================================");
+    println!("               MAKIMA PROBABILISTIC FORECAST                ");
+    println!("============================================================");
+    println!("Forecast ID:          {forecast_id}");
+    println!("Target:               {}", forecast.target);
+    println!(
+        "Probabilità Stimata:  {:.2}%  (E[P] = {:.4})",
+        forecast.probability.value() * 100.0,
+        forecast.probability.value()
+    );
+    println!(
+        "Densità di Stima:     {} (0.0 -> 1.0)",
+        render_ascii_density_bar(forecast.probability.value(), 36)
+    );
+    println!("Incertezza (Var):     {:.6}", forecast.uncertainty_variance);
+    println!("Entropia Informativa: {:.4} bit", forecast.entropy_bits);
+    println!(
+        "Prior Bayesiano:      Beta(alpha={:.2}, beta={:.2})",
+        forecast.prior.alpha(),
+        forecast.prior.beta()
+    );
+    println!(
+        "Posterior Aggiornato: Beta(alpha={:.2}, beta={:.2})",
+        forecast.posterior.alpha(),
+        forecast.posterior.beta()
+    );
+    println!(
+        "Evidenze Rilevate:    {} osservazioni storiche",
+        forecast.evidence_count
+    );
+    println!("Modello:              BayesianConjugate (Rust Core)");
+    if !nlp_notes.is_empty() {
+        println!("Note NLP:             {nlp_notes}");
+    }
+    println!("Stato nel Ledger:     PENDING (in attesa di esito reale)");
+    println!("============================================================\n");
+}
+
+fn handle_query(query_text: &str) -> ExitCode {
+    // 1. Python NLP → StructuredIntent JSON (nessun calcolo Bayes lato Python sul path CLI)
+    let structured = match parse_structured_intent(query_text) {
+        Ok(v) => v,
+        Err(err) => {
+            eprintln!("{err}");
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let intent = structured
+        .get("intent")
+        .and_then(|v| v.as_str())
+        .unwrap_or("UNKNOWN");
+    let target = structured
+        .get("target")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let confidence = structured
+        .get("confidence")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let is_valid = structured
+        .get("is_valid_for_core")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let temporal = structured
+        .get("temporal_window")
+        .and_then(|v| v.get("relation"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("UNKNOWN");
+    let notes = structured
+        .get("validation_notes")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|x| x.as_str())
+                .collect::<Vec<_>>()
+                .join("; ")
+        })
+        .unwrap_or_default();
+
+    println!("\n============================================================");
+    println!("           MAKIMA SEMANTIC → RUST CORE BRIDGE              ");
+    println!("============================================================");
+    println!("Query:                \"{query_text}\"");
+    println!("Intent:               {intent}");
+    println!(
+        "Target:               {}",
+        target.as_deref().unwrap_or("[None]")
+    );
+    println!("Temporal Window:      {temporal}");
+    println!("Confidenza Parser:    {:.1}%", confidence * 100.0);
+    println!(
+        "Valido per Core:      {}",
+        if is_valid { "Sì" } else { "No" }
+    );
+    if !notes.is_empty() {
+        println!("Note Validazione:     {notes}");
+    }
+    println!("============================================================");
+
+    if !is_valid {
+        println!("\nPrevisione rifiutata: StructuredIntent non ammissibile per il core.\n");
+        return ExitCode::SUCCESS;
+    }
+
+    let Some(target) = target else {
+        println!("\nPrevisione rifiutata: nessun target identificato.\n");
+        return ExitCode::SUCCESS;
+    };
+    let window_desc = structured
+        .pointer("/temporal_window/days")
+        .and_then(|v| v.as_u64())
+        .map(|d| format!("{d} days"))
+        .unwrap_or_else(|| temporal.to_string());
+
+    // 2. Forecast esclusivo nel core Rust su evidenze empiriche dello store
+    let mut engine = load_engine_from_store();
+    let forecast = engine.predict_target(&target);
+    let ts = current_unix_timestamp();
+    let id = engine.register_forecast_in_ledger(
+        &target,
+        ts,
+        forecast.probability,
+        &window_desc,
+        forecast.evidence_count,
+        "BayesianConjugate+NLP",
+    );
+    save_engine_to_store(&engine);
+
+    print_forecast_report(&forecast, id, &notes);
+    ExitCode::SUCCESS
 }
 
 fn main() -> ExitCode {

@@ -42,6 +42,10 @@ class StructuredIntent:
         """Serializza l'intento strutturato in una stringa JSON deterministica."""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
+    def to_json_compact(self) -> str:
+        """Serializza JSON compatto (una riga) per il bridge CLI Rust."""
+        return json.dumps(self.to_dict(), ensure_ascii=False, separators=(",", ":"))
+
     def summary(self) -> str:
         """Riepilogo formattato in stile diagnostico Makima."""
         lines = [
