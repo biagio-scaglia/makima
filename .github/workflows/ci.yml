@@ -56,3 +56,45 @@ jobs:
 
       - name: Run Python unit tests
         run: python -m unittest discover -s tests -p "test_*.py"
+
+  nlp-rust-bridge:
+    name: NLP → Rust Bridge (parse-intent + golden)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install makima_lab (base, senza MiniLM obbligatorio)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy scipy
+          pip install -e .
+
+      - name: Golden Rust tests (intent → forecast)
+        run: cargo test -p makima-core --test golden_nlp_bridge
+
+      - name: Python intent contract tests
+        run: python -m unittest tests.test_intent_contract -v
+
+      - name: Live parse-intent → JSON → Rust deserialize smoke
+        run: |
+          set -e
+          export PYTHONPATH=python
+          OUT=$(python -m makima_lab parse-intent "Quando rilascerò il prossimo framework?")
+          echo "$OUT" | head -c 400
+          echo "$OUT" | grep -q '"intent":"TEMPORAL_QUERY"'
+          echo "$OUT" | grep -q '"target":"framework_release"'
+          echo "$OUT" | grep -q '"is_valid_for_core":true'
+          cargo run --quiet --bin makima -- query "Qual è la probabilità del deploy?" | tee /tmp/makima_query.out
+          grep -q "SEMANTIC → RUST CORE BRIDGE" /tmp/makima_query.out
+          grep -q "Target:" /tmp/makima_query.out
