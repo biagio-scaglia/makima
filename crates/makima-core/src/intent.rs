@@ -141,10 +141,7 @@ impl StructuredIntent {
     pub fn admits_forecast(&self) -> bool {
         self.is_valid_for_core
             && self.intent.is_forecast_intent()
-            && self
-                .target
-                .as_ref()
-                .is_some_and(|t| !t.trim().is_empty())
+            && self.target.as_ref().is_some_and(|t| !t.trim().is_empty())
     }
 
     /// Note di validazione unite in una stringa.

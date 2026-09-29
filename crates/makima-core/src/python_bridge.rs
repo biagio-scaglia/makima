@@ -29,12 +29,7 @@ impl fmt::Display for PythonBridgeError {
             Self::Spawn(e) => write!(f, "impossibile avviare Python: {e}"),
             Self::Timeout(d) => write!(f, "timeout subprocess Python dopo {d:?}"),
             Self::NonZeroExit { code, stderr } => {
-                write!(
-                    f,
-                    "Python uscito con codice {:?}: {}",
-                    code,
-                    stderr.trim()
-                )
+                write!(f, "Python uscito con codice {:?}: {}", code, stderr.trim())
             }
             Self::EmptyStdout => write!(f, "subprocess Python senza stdout"),
             Self::Intent(msg) => write!(f, "{msg}"),
@@ -106,8 +101,6 @@ pub fn parse_structured_intent(
 }
 
 /// Scorciatoia con timeout di default.
-pub fn parse_structured_intent_default(
-    query: &str,
-) -> Result<StructuredIntent, PythonBridgeError> {
+pub fn parse_structured_intent_default(query: &str) -> Result<StructuredIntent, PythonBridgeError> {
     parse_structured_intent(query, DEFAULT_PYTHON_TIMEOUT)
 }

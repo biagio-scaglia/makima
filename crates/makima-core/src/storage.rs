@@ -76,18 +76,8 @@ impl MakimaStore {
     #[must_use]
     pub fn sample_store() -> Self {
         let observations = vec![
-            Observation::new(
-                ObservationId(1),
-                "framework_release",
-                1_700_000_000,
-                1.0,
-            ),
-            Observation::new(
-                ObservationId(2),
-                "framework_release",
-                1_700_086_400,
-                0.0,
-            ),
+            Observation::new(ObservationId(1), "framework_release", 1_700_000_000, 1.0),
+            Observation::new(ObservationId(2), "framework_release", 1_700_086_400, 0.0),
             Observation::new(ObservationId(3), "daily_build", 1_700_000_000, 1.0),
         ];
 
