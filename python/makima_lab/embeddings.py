@@ -5,9 +5,16 @@ Provides fast semantic vector extraction and cosine similarity.
 """
 
 from __future__ import annotations
+import hashlib
 import math
 from typing import List, Optional
 import numpy as np
+
+
+def _stable_token_hash(token: str) -> int:
+    """Hash FNV-style deterministico (indipendente da PYTHONHASHSEED)."""
+    digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+    return int.from_bytes(digest, byteorder="little", signed=False)
 
 _EMBEDDER_INSTANCE = None
 
@@ -70,15 +77,15 @@ class SemanticEmbedder:
             except Exception:
                 pass
 
-        # Offline fallback vector generation using subword hash projections
+        # Offline fallback: proiezioni hash subword riproducibili (blake2b)
         vectors = []
         for t in texts:
             vec = np.zeros(self.dim, dtype=np.float32)
             words = t.lower().split()
             for i, w in enumerate(words):
-                h = abs(hash(w))
+                h = _stable_token_hash(w)
                 idx = h % self.dim
-                val = math.sin(h + i)
+                val = math.sin((h % 10_000) + i)
                 vec[idx] += val
             norm = np.linalg.norm(vec)
             if norm > 1e-6:
