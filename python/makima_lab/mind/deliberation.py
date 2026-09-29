@@ -6,6 +6,7 @@ import time
 import uuid
 from typing import Dict, List, Optional
 from makima_lab.mind.schemas import (
+    CognitiveExperience,
     CognitiveMood,
     CognitivePulse,
     EpistemicSelfState,
