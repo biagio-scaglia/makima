@@ -1,4 +1,9 @@
-"""Modulo della Mente Cognitiva, Coscienza ed Esperienza Episodica di Makima."""
+"""Modulo della Mente Cognitiva, Coscienza ed Esperienza Episodica di Makima.
+
+STATO: **laboratorio sperimentale / UX narrativa**.
+Non partecipa al path di forecasting di produzione (CLI `makima query` / GUI forecast).
+I numeri probabilistici restano esclusiva di `makima-core` (Rust).
+"""
 
 from makima_lab.mind.schemas import (
     CognitiveMood,
@@ -18,7 +23,13 @@ from makima_lab.mind.knowledge_graph import (
     SecondBrainBuilder,
 )
 
+# Marker esplicito: fuori dal runtime di forecasting.
+EXPERIMENTAL_LAB = True
+FORECASTING_PATH = False
+
 __all__ = [
+    "EXPERIMENTAL_LAB",
+    "FORECASTING_PATH",
     "CognitiveMood",
     "CognitiveExperience",
     "CognitivePulse",
