@@ -81,10 +81,10 @@ I componenti cardine del sistema sono:
 2. **CLI Native Runner (`crates/makima-cli`)**: eseguibile nativo ad alte prestazioni (`makima.exe`) per consultare la diagnostica, registrare evidenze e orchestrare le previsioni con latenza sub-second.
 3. **Desktop GUI & Second Brain (`crates/makima-gui`)**: applicazione desktop nativa ultra-reattiva (Tauri v2 + Canvas Physics + CSS Glassmorphism) con visualizzatore a grafi sinaptici, dashboard Beta e chat assistente.
 4. **Mente Cognitiva & Deliberazione (`python/makima_lab/mind`)**: motore di deliberazione cosciente a 4 stadi con monologo interiore trasparente, battito autonomo di pensiero e giornale autobiografico persistente.
-5. **NLP Neurale a 9 Stadi (`python/makima_lab/nlp`)**: pipeline completa di interpretazione linguistica con risoluzione anafore, classificazione intenti a 7 categorie con rifiuto esplicito `UNKNOWN` e ranking target canonici.
-6. **Semantic Embedder (`python/makima_lab/embeddings.py`)**: vettorizzatore basato su `all-MiniLM-L6-v2` (Sentence-Transformers) con fallback deterministico su proiezioni hash subword per matching semantico a similarità coseno.
+5. **NLP Multi-Stadio (`python/makima_lab/nlp`)**: pipeline euristica a stadi (preprocessing, intent regex, target matching, temporale, confidenza, validazione) che emette `StructuredIntent` JSON verso il core Rust. Non è un classificatore neurale end-to-end.
+6. **Semantic Embedder (`python/makima_lab/embeddings.py`)**: MiniLM opzionale (`pip install -e ".[nlp]"`) con fallback hash blake2b riproducibile.
 7. **Osservatore Git Reale (`python/makima_lab/git_observer.py`)**: monitoraggio dei commit dal repository Git locale per alimentare automaticamente target empirici (`git:feature_ratio`, `git:test_discipline`).
-8. **SLM Locale Opzionale (`python/makima_lab/llm`)**: modello compatto `Qwen/Qwen2.5-0.5B-Instruct` con caricamento prioritario offline da cache locale per generare spiegazioni in linguaggio naturale (`explain`), sintesi esecutive (`digest`) e chat continua.
+8. **SLM Locale Opzionale (`python/makima_lab/llm`)**: modello compatto `Qwen/Qwen2.5-0.5B-Instruct` solo per explain/digest (non estrae intenti né probabilità).
 
 ---
 
@@ -95,10 +95,10 @@ Il progetto assegna a ciascun linguaggio responsabilità chiare e non sovrappost
 | Ambito | Ruolo di Rust | Ruolo di Python |
 | :--- | :--- | :--- |
 | **Missione** | Runtime di produzione deterministico, veloce e sicuro. | Ricerca scientifica, NLP, deliberazione cognitiva e telemetria. |
-| **Calcolo Matematico** | Formule analitiche chiuse (Beta, Poisson, Bernoulli, Shannon, Brier, ECE). | Prototipazione modelli, validazione e benchmark comparativi. |
-| **Persistenza & Concorrenza** | Gestione primaria ACID di SQLite in modalità WAL e snapshot JSON. | Lettura dello store, diario autobiografico `.makima/mind_journal.jsonl`. |
-| **Interfaccia Utente** | Binario nativo CLI (<200ms) e backend IPC Tauri v2 per Desktop GUI. | REPL interattivo scientifico (`python -m makima_lab`). |
-| **Deep Learning & NLP** | *Nessuna dipendenza pesante a runtime.* | Sentence-Transformers, PyTorch Cognitive Net, Qwen 2.5 SLM. |
+| **Calcolo Matematico** | Unico motore numerico di produzione (Beta, Poisson, Brier, ECE). | Prototipazione e benchmark; non calcola probabilità sul path CLI/GUI. |
+| **Persistenza & Concorrenza** | SQLite WAL + snapshot JSON. | Lettura store e diario `.makima/mind_journal.jsonl`. |
+| **Interfaccia Utente** | CLI nativa e backend IPC Tauri v2. | REPL scientifico (`python -m makima_lab`). |
+| **Deep Learning & NLP** | Consuma `StructuredIntent` JSON e calcola il forecast. | Parser euristico NLP; extras opzionali MiniLM/Qwen. |
 
 > Per i dettagli tecnici completi, consultare:
 > - [docs/architecture.md](file:///c:/Users/biagio.scaglia/Desktop/makima/docs/architecture.md) — Specifica architetturale e principi di dominio.
@@ -140,8 +140,11 @@ python -m venv .venv
 # Linux / macOS
 source .venv/bin/activate
 
-# Installazione del laboratorio in modalità editabile con dipendenze di ricerca
+# Installazione del laboratorio (base) + extras di ricerca NLP/LLM
 pip install -e ".[dev,research]"
+# Oppure solo embeddings / solo LLM:
+# pip install -e ".[nlp]"
+# pip install -e ".[llm]"
 ```
 
 ---
@@ -187,9 +190,13 @@ target\release\makima observe deploy 0
 
 ### 2. Calcolare una previsione bayesiana interpretabile
 ```bash
+# Percorso diretto (target già noto):
 target\release\makima predict deploy
+
+# Percorso semantico NL → StructuredIntent → Rust:
+target\release\makima query "Qual è la probabilità del deploy?"
 ```
-*Output atteso:*
+*Output atteso (numeri dal core Rust):*
 ```text
 ============================================================
                MAKIMA PROBABILISTIC FORECAST                
@@ -276,14 +283,15 @@ Per garantire la massima trasparenza tecnica verso sviluppatori e contributori, 
 | **Mente Cognitiva & Monologo Interiore** | 🟢 **Implementato** | Deliberazione a 4 stadi con onestà epistemica, rifiuto `UNKNOWN` e diario persistente. |
 | **Launcher Rapidi Windows** | 🟢 **Implementato** | `gui.bat` (Desktop GUI), `avvio.bat` (avvio rapido <300ms) e `start.bat` (con test). |
 | **Telemetria Git Reale & Daemon** | 🟢 **Implementato** | Parser commit bilingue (italiano/inglese) e daemon in background. |
-| **Pipeline Neurale & NLP Multi-Livello** | 🟢 **Implementato** | Pipeline a 9 stadi (Preprocessing, Tokenizer, Embeddings 384d, Intent Classifier, Target Extractor, Temporal Reasoning, Context Memory, Confidence Estimation, Validation Guardrails) con benchmark quantitativo al 100%. |
-| **Vettorizzazione Semantica Embeddings** | 🟢 **Implementato** | MiniLM 384d (`SentenceTransformers`) con fallback deterministico su proiezioni hash. |
-| **Mente Neurale Cognitiva (`MakimaMindNet`)**| 🟢 **Implementato** | PyTorch BiGRU + Self-Attention, memoria utente continua e online learning. |
-| **Spiegazioni & Chat SLM (`Qwen 2.5`)** | 🟡 **Sperimentale** | Modello compatto locale per generare spiegazioni guidate da evidenze e chat interattiva. |
-| **Suite Benchmark & Ablation Study** | 🟡 **Sperimentale** | Benchmark comparativo su 5.000 campioni sintetici in `experiments/forecasting/`. |
+| **Pipeline NLP Multi-Stadio → StructuredIntent** | 🟢 **Implementato** | Parser euristico + validazione; CLI/GUI consumano JSON e calcolano il forecast in Rust. |
+| **Vettorizzazione Semantica Embeddings** | 🟡 **Opzionale** | MiniLM se installato (`pip install -e ".[nlp]"`); altrimenti fallback hash blake2b riproducibile. |
+| **Mente Neurale Cognitiva (`MakimaMindNet`)**| 🟡 **Sperimentale** | Path parallelo PyTorch (ispezione `neural`); non è il parser di produzione. |
+| **Spiegazioni SLM (`Qwen 2.5 0.5B`)** | 🟡 **Sperimentale** | Solo explain/digest; non estrae intenti né probabilità. |
+| **Suite Benchmark & Ablation Study** | 🟡 **Sperimentale** | Benchmark comparativo su campioni sintetici in `experiments/forecasting/`. |
+| **Store iniziale vuoto (no seed sintetici)** | 🟢 **Implementato** | Nessuna evidenza inventata a runtime; `observe` / `sync-git` popolano lo store. |
 | **Distribuzioni di Dirichlet Multinomiali** | ⚪ **Pianificato** | Estensione a target categorici a più di 2 stati (Roadmap Fase 2). |
 | **Catene di Markov a Tempo Discreto (DTMC)** | ⚪ **Pianificato** | Modellazione degli stati di avanzamento del workflow di sviluppo. |
-| **Bridge Nativo PyO3 / C-FFI** | ⚪ **Pianificato** | Chiamate in-process tra Rust e Python senza dispatch di sottoprocesso CLI. |
+| **Bridge Nativo PyO3 / C-FFI** | ⚪ **Pianificato** | Oggi il bridge è JSON via subprocess; PyO3 resta opzionale. |
 | **Compilazione WebAssembly (`makima-wasm`)** | ⚪ **Pianificato** | Esecuzione edge e browser priva di dipendenze di sistema. |
 
 ---

@@ -82,11 +82,11 @@ Il repository è ripartito rigorosamente tra runtime compilato di produzione (`c
 | Sottosistema | Percorso | Responsabilità Primaria |
 | :--- | :--- | :--- |
 | **`makima_lab.mind`** | `python/makima_lab/mind/` | **Mente Cognitiva, Coscienza & Second Brain**: motore di deliberazione a 4 stadi (`MindDeliberationEngine`), memoria autobiografica persistente (`EpisodicMemoryStore`), battito autonomo di pensiero (`AutonomousMindPulse`), e costruttore del grafo di conoscenza sinaptico (`SecondBrainBuilder`). |
-| **`makima_lab.nlp`** | `python/makima_lab/nlp/` | **Pipeline Neurale NLP a 9 Livelli**: preprocessing, tokenizzazione con lemmi composti, embedding densi normalizzati (384d), classificazione intenti a 7 categorie con rifiuto esplicito `UNKNOWN`, ranking dei target canonici, risoluzione anafore a finestra mobile $K=5$, stima convessa della confidenza e guardrail di validazione. |
+| **`makima_lab.nlp`** | `python/makima_lab/nlp/` | **Pipeline NLP euristica multi-stadio**: preprocessing, intent regex, target matching, temporale, confidenza, validazione → `StructuredIntent` JSON. |
 | **`makima_lab.embeddings`** | `python/makima_lab/embeddings.py` | **Vettorizzazione semantica densa**: genera embedding a 384 dimensioni mediante Sentence-Transformers (`all-MiniLM-L6-v2`) con caricamento locale prioritario e fallback deterministico su proiezioni hash subword; calcola la similarità coseno per associare query utente a target reali del database. |
 | **`makima_lab.neural`** | `python/makima_lab/neural/` | **Rete Neurale Cognitiva (`MakimaMindNet`)**: architettura PyTorch con BiGRU, Multi-Head Self-Attention, cella di memoria latente ricorrente dell'utente ($\mathbf{h}_{user} \in \mathbb{R}^{64}$), classificazione multi-task e apprendimento online continuo (AdamW). |
 | **`makima_lab.git_observer`** | `python/makima_lab/git_observer.py` | **Telemetria Git reale & Daemon**: estrazione dello storico dei commit dal repository, categorizzazione semantica (italiano/inglese), stima empirica della frequenza Poisson ($\lambda$) e monitoraggio in background per nuovi commit. |
-| **`makima_lab.llm`** | `python/makima_lab/llm/` | **Ragionamento e spiegazione con Small Language Model (SLM)**: inferenza locale su `Qwen/Qwen2.5-0.5B-Instruct` con caricamento offline prioritario da cache, generazione di spiegazioni trasparenti delle formule (`explain`), sintesi esecutive (`digest`) e sessione chat interattiva continua (`chat`). |
+| **`makima_lab.llm`** | `python/makima_lab/llm/` | **SLM opzionale**: `Qwen/Qwen2.5-0.5B-Instruct` solo per explain/digest (non per probabilità né structured intent). |
 | **`makima_lab.storage`** | `python/makima_lab/storage.py` | **Astrazione storage lato Python**: interfacciamento con `.makima/makima.db` (SQLite WAL), `.makima/mind_journal.jsonl` e `.makima/store.json`. |
 
 ### 2.3 Modulo di Validazione Sperimentale (`experiments/`)
@@ -99,82 +99,74 @@ Il repository è ripartito rigorosamente tra runtime compilato di produzione (`c
 
 ## 3. Comunicazione e Sincronizzazione tra Rust e Python
 
-Makima adotta un'architettura **ibrida asincrona/disaccoppiata**:
+Makima adotta un'architettura **ibrida disaccoppiata** con contratto esplicito:
 
 ```text
-  ┌─────────────────────────────────────────────────────────────┐
-  │                    Spazio Applicativo                       │
-  ├──────────────────────────────┬──────────────────────────────┤
-  │       Rust Runtime Core      │      Python Research Lab     │
-  │      (Prestazioni & ACID)    │    (NLP, PyTorch & SLM)      │
-  └──────────────┬───────────────┴──────────────┬───────────────┘
-                 │                              │
-                 ▼                              ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │               SQLite WAL Database (.makima/makima.db)       │
-  │   - journal_mode = WAL (Write-Ahead Logging)                │
-  │   - Letture concorrenti non bloccanti                       │
-  │   - Tabella immutabile: event_log & observations            │
-  └──────────────────────────────┬──────────────────────────────┘
-                                 │
-                                 ▼
-  ┌─────────────────────────────────────────────────────────────┐
-  │               JSON Snapshot (.makima/store.json)            │
-  │   - Formato human-readable per backup e ispezione manuale   │
-  └─────────────────────────────────────────────────────────────┘
+  Query NL ──► python -m makima_lab parse-intent ──► StructuredIntent JSON
+                                                      │
+                                                      ▼
+                         makima-cli / makima-gui ──► makima-core.predict_target
+                                                      │
+                                                      ▼
+                                              Forecast + Ledger (Rust)
 ```
+
+Persistenza condivisa: SQLite WAL (`.makima/makima.db`) + snapshot JSON (`.makima/store.json`).
+
+Regole operative:
+1. **Python non calcola probabilità sul path CLI/GUI di produzione.** Il parser emette solo `StructuredIntent`.
+2. **Rust è l'unico motore numerico di runtime** (Beta, Poisson, scoring, ledger).
+3. **Nessuna evidenza sintetica** nello store iniziale: solo `observe`, `outcome`, `sync-git`.
+4. Il laboratorio Python (`python -m makima_lab query`) può ancora mostrare un forecast lab-side a scopo di debug.
 
 ### 3.1 Canali di Cooperazione
 
-1. **Storage Condiviso SQLite WAL (`.makima/makima.db`)**:
-   - Sia Rust (`rusqlite`) sia Python (`sqlite3`) aprono il database con `PRAGMA journal_mode = WAL;`.
-   - Il WAL (*Write-Ahead Logging*) consente a processi concorrenti di leggere senza bloccare chi scrive, evitando conflitti di lock tra la CLI Rust e i daemon/script Python.
-2. **Snapshot JSON di Fallback (`.makima/store.json`)**:
-   - Ad ogni mutazione, `MakimaEngine` sincronizza la rappresentazione di stato su JSON, permettendo al laboratorio Python di leggere lo storico completo anche in assenza di driver relazionali.
-3. **Dispatch Subprocess da CLI Rust a Python**:
-   - Quando l'utente invoca comandi che richiedono modelli linguistici o neurali (`makima query`, `makima tell`, `makima neural`, `makima sync-git`), `makima-cli` richiama l'interprete Python configurando `PYTHONPATH=python` ed eseguendo il modulo `makima_lab`.
-   - Se Python o i moduli opzionali non sono disponibili, la CLI Rust degrada elegantemente informando l'utente senza provocare panic.
+1. **Storage Condiviso SQLite WAL** — letture concorrenti non bloccanti tra CLI Rust e script Python.
+2. **Snapshot JSON** — backup human-readable sincronizzato alle mutazioni.
+3. **Subprocess NLP** — `makima query` invoca `python -m makima_lab parse-intent` e consuma il JSON; `tell`/`neural`/`sync-git` restano sidecar Python.
 
 ---
 
-## 4. Pipeline Neurale & NLP Multi-Livello
+## 4. Pipeline NLP Multi-Stadio
 
-La comprensione del linguaggio naturale è affidata a [`makima_lab.nlp`](file:///c:/Users/biagio.scaglia/Desktop/makima/python/makima_lab/nlp). A differenza di un approccio monolitico con prompt non vincolati, Makima adotta una pipeline a stadi specializzati che produce un oggetto fortemente tipizzato e validato: [`StructuredIntent`](file:///c:/Users/biagio.scaglia/Desktop/makima/python/makima_lab/nlp/schemas/structured_intent.py).
+La comprensione del linguaggio naturale è affidata a `makima_lab.nlp`. La pipeline è **euristica multi-stadio** (non un encoder neurale unico) e produce [`StructuredIntent`](../python/makima_lab/nlp/schemas/structured_intent.py).
 
-### 4.1 Ciclo di Elaborazione Semantica a 8 Livelli
+### 4.1 Ciclo di Elaborazione Semantica
+
+La pipeline NLP è **euristica multi-stadio** (regex + matching lessicale/embedding), non un encoder neurale unico:
 
 ```text
 Frase Utente: "Quando rilascerò il prossimo framework?"
                              │
                              ▼
- 1. Preprocessing            ──► Pulizia Unicode NFKC, normalizzazione apostrofi e spazi
+ 1. Preprocessing            ──► Pulizia Unicode NFKC
                              │
                              ▼
- 2. Tokenizzazione           ──► Suddivisione in parole, stopword filtering, estrazione n-grammi
+ 2. Tokenizzazione           ──► Token + n-grammi
                              │
                              ▼
- 3. Rappresentazione         ──► MiniLM-L6-v2 384-dim (L2 normalizzato) & Cosine Space
+ 3. Rappresentazione         ──► MiniLM opzionale / fallback hash blake2b
                              │
                              ▼
- 4. Intent Classification    ──► Intent.TEMPORAL_QUERY (pattern sintattici & indizi lessicali)
+ 4. Intent Classification    ──► Pattern lessicali → Intent.TEMPORAL_QUERY
                              │
                              ▼
- 5. Target Extraction        ──► Descrittori canonici & ranking embeddings: "framework_release"
+ 5. Target Extraction        ──► Descrittori + ranking → "framework_release"
                              │
                              ▼
- 6. Temporal Understanding   ──► TemporalRelation.FUTURE (orizzonte temporale futuro)
+ 6. Temporal Understanding   ──► TemporalRelation.FUTURE
                              │
                              ▼
- 7. Confidence Estimation    ──► Formula composita trasparente pesata (Score: 0.82)
+ 7. Confidence Estimation    ──► Score composito trasparente
                              │
                              ▼
- 8. Validation & Guardrails  ──► is_valid_for_core = True, notes = ["Struttura conforme"]
+ 8. Validation & Guardrails  ──► is_valid_for_core
                              │
                              ▼
-       StructuredIntent DTO  ──► Serializzazione JSON deterministica per Rust Core
+       StructuredIntent JSON ──► CLI/GUI Rust
                              │
                              ▼
- 9. Esecuzione Rust Core     ──► Aggiornamento Beta-Binomiale & Distribuzione Temporale
+ 9. Esecuzione Rust Core     ──► Beta-Binomiale su evidenze empiriche dello store
 ```
 
 ### 4.2 Tassonomia di Dominio NLP & Schemi

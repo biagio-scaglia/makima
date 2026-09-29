@@ -57,9 +57,9 @@ makima/
 ├── python/
 │   └── makima_lab/             # Laboratorio scientifico, NLP e Coscienza Cognitiva
 │       ├── mind/               # Deliberazione, Monologo Interiore, Memoria Episodica, Second Brain
-│       ├── nlp/                # Pipeline neurale a 9 stadi (preprocessing, embeddings, intent, confidence)
-│       ├── neural/             # MakimaMindNet (PyTorch Self-Attention & Latent Memory)
-│       ├── llm/                # QwenCognitiveEngine (SLM locale 0.5B per explain e chat)
+│       ├── nlp/                # Pipeline NLP euristica → StructuredIntent JSON
+│       ├── neural/             # MakimaMindNet (sperimentale, path parallelo)
+│       ├── llm/                # Qwen 2.5 0.5B (explain/digest opzionale)
 │       ├── embeddings.py       # SemanticEmbedder (SentenceTransformers & Cosine Matching)
 │       ├── git_observer.py     # Telemetria Git reale e monitoraggio daemon
 │       ├── distributions.py    # Distribuzioni probabilistiche in Python
@@ -166,38 +166,19 @@ Il flusso dei dati dall'acquisizione dell'evidenza alla restituzione della previ
 
 ## 6. Rust / Python Boundary
 
-Il confine tra Rust e Python rispetta una gerarchia di dipendenza unidirezionale:
+Il confine tra Rust e Python rispetta una gerarchia di dipendenza unidirezionale sul path di produzione:
 
 ```text
-               ┌───────────────────────────────┐
-               │    Python Research Lab        │
-               │  - Prototipazione modelli     │
-               │  - Validazione matematica     │
-               │  - Esperimenti NLP / Intent   │
-               └───────────────┬───────────────┘
-                               │
-                      ipotesi confermata?
-                               │
-                               ▼
-               ┌───────────────────────────────┐
-               │      Rust Core Engine         │
-               │  - Dominio & Invarianti       │
-               │  - Calcolo probabilistico     │
-               │  - Simulazioni Monte Carlo    │
-               │  - Runtime di produzione      │
-               └───────────────┬───────────────┘
-                               │
-                               ▼
-               ┌───────────────────────────────┐
-               │     Export Bridge (PyO3)      │
-               │  (Futura esposizione verso    │
-               │   Python per benchmark/lab)   │
-               └───────────────────────────────┘
+  NL Query ──► Python (parse-intent) ──► StructuredIntent JSON
+                                              │
+                                              ▼
+                                    Rust Core (forecast)
 ```
 
-1. **Nessun Codice Core in Python**: la logica operativa finale di Makima risiede al 100% in Rust.
-2. **Nessun Crate Wrapper Vuoto**: Rust non fa da semplice bind verso script Python.
-3. **Bridge Futuro (PyO3/maturin)**: quando un algoritmo in Rust sarà maturo, potrà essere esposto verso Python per analisi retrospettive o visualizzazioni nel lab, mai il contrario per il runtime critico.
+1. **Nessun Bayes di produzione in Python**: le probabilità runtime vengono da `makima-core`.
+2. **Nessuna evidenza sintetica a boot**: store iniziale vuoto.
+3. **Bridge attuale**: subprocess + JSON (`parse-intent`). PyO3 resta pianificato, non obbligatorio.
+4. **MakimaMindNet / Qwen**: componenti sperimentali di laboratorio, fuori dal contratto di forecasting.
 
 ---
 

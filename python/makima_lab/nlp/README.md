@@ -1,6 +1,6 @@
 # Makima Lab — Architettura Neurale & Pipeline NLP Multi-Livello
 
-Il modulo `makima_lab.nlp` implementa l'architettura neurale e di elaborazione del linguaggio naturale (**Natural Language Processing & Semantic Understanding**) di Makima.
+Il modulo `makima_lab.nlp` implementa la pipeline **euristica multi-stadio** di elaborazione del linguaggio naturale di Makima (non un encoder neurale end-to-end).
 
 A differenza dei sistemi monolitici basati su prompt generativi non vincolati (*Black-Box LLM prompting*), Makima adotta una **pipeline modulare a livelli specializzati**, in cui ogni componente ha una responsabilità tecnica determinata, un input tipizzato, un output verificabile e metriche empiriche misurabili.
 
@@ -128,9 +128,13 @@ L'interpretazione semantica di una query dell'utente evolve progressivamente att
 
 ---
 
-## 3. Ruolo del Modello Linguistico Locale (Qwen 2.5 1B)
+## 3. Ruolo del Modello Linguistico Locale (Qwen 2.5 0.5B)
 
-Il modello **Qwen 2.5 1B** (`makima_lab.llm.QwenCognitiveEngine`) opera come **motore cognitivo specializzato** e non come decisore unico:
+Il modello **Qwen 2.5 0.5B** (`makima_lab.llm.QwenCognitiveEngine`) opera come **motore di spiegazione opzionale** e non come decisore:
+
+- Non calcola probabilità.
+- Non estrae `StructuredIntent` (quello spetta alla pipeline NLP euristica).
+- Produce solo testo (explain/digest) a partire da numeri già calcolati dal core.
 - **Spiegazione & Interpretazione**: Generazione di sintesi testuali in linguaggio naturale per spiegare la distribuzione Beta posteriore, la varianza e i Brier Score calcolati dal core.
 - **Digest di Sintesi**: Riassunto strutturato dello stato multi-target e dell'Expected Calibration Error.
 - **Isolamento**: Il modello generativo non può sovrascrivere i parametri probabilistici deterministici né emettere previsioni numeriche non convalidate dalla pipeline.
@@ -171,12 +175,13 @@ python -m makima_lab.nlp.evaluation.benchmark
 | Componente | Stato | Descrizione |
 | :--- | :---: | :--- |
 | **TextCleaner & SimpleTokenizer** | `IMPLEMENTED` | Normalizzazione NFKC, apostrofi, stopword, n-grammi. |
-| **Semantic Embedder (384-dim)** | `IMPLEMENTED` | MiniLM L6 v2 con fallback vettoriale offline subword. |
-| **IntentClassifier** | `IMPLEMENTED` | 7 categorie realistiche con rifiuto esplicito `UNKNOWN`. |
+| **Semantic Embedder (384-dim)** | `OPTIONAL` | MiniLM se installato; altrimenti fallback hash blake2b. |
+| **IntentClassifier** | `IMPLEMENTED` | Pattern lessicali + rifiuto `UNKNOWN` (euristico, non neurale). |
 | **TargetExtractor** | `IMPLEMENTED` | Descrittori canonici, posizionali e ranking cosine similarity. |
 | **TemporalAnalyzer** | `IMPLEMENTED` | Passato, presente, futuro, intervalli relativi, date ISO. |
 | **ConversationContext** | `IMPLEMENTED` | Buffer circolare FIFO $K=5$ con risoluzione anafore. |
 | **ConfidenceEstimator** | `IMPLEMENTED` | Funzione trasparente multi-segnale pesata. |
 | **IntentValidator** | `IMPLEMENTED` | Guardrails per l'interfaccia verso Rust Core. |
-| **Qwen 2.5 1B Explanation Engine** | `IMPLEMENTED` | Generazione spiegazioni e digest guidati da evidenze. |
-| **Fine-tuning Neurale Dedicato per Intent**| `PLANNED` | Distillazione di un piccolo classificatore neurale su dataset annotato. |
+| **Bridge StructuredIntent → Rust** | `IMPLEMENTED` | CLI/GUI: `parse-intent` JSON + forecast in `makima-core`. |
+| **Qwen 2.5 0.5B Explanation Engine** | `EXPERIMENTAL` | Solo explain/digest; non estrae intenti. |
+| **Fine-tuning Neurale Dedicato per Intent**| `PLANNED` | Distillazione di un piccolo classificatore su dataset annotato. |
